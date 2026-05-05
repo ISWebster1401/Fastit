@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv*/
+venv/
+back/.venv*/
+*.egg-info/
+.env
+
+# Base de datos local
+back/fastit.db
+back/test_fastit.db
+
+# Node
+front/node_modules/
+front/node_modules 2/
+front/dist/
+front/.vite/
+
+# Frames del video (pesados, no van al repo)
+front/public/frames/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+back/.venv_py39_broken_20260420_224754/

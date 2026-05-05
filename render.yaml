@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: fastit
+    runtime: python
+    buildCommand: bash build.sh && pip install -r back/requirements.txt
+    startCommand: cd back && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        value: sqlite:///./fastit.db
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: BACKEND_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
