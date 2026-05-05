@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from app.core.config import settings
 from app.database import Base, engine
 from app.routers import products, checkout, webhooks, auth, orders, admin, advisor, payments, flow
-import app.models  # noqa: F401 — registra todos los modelos en Base.metadata
+import app.models  # noqa: F401
 
 from app.migrations import run as run_migrations
 run_migrations()
@@ -47,17 +47,20 @@ app.include_router(flow.router)
 def health():
     return {"status": "ok", "app": settings.APP_NAME}
 
-# Sirve el frontend compilado (React build) si existe
-_static = os.path.join(os.path.dirname(__file__), "..", "static")
-if os.path.isdir(_static):
-    app.mount("/assets", StaticFiles(directory=os.path.join(_static, "assets")), name="assets")
 
-    @app.get("/", include_in_schema=False)
+# Sirve el frontend compilado si existe el directorio static/
+_static = os.path.join(os.path.dirname(__file__), "..", "static")
+_assets = os.path.join(_static, "assets")
+
+if os.path.isdir(_static):
+    if os.path.isdir(_assets):
+        app.mount("/assets", StaticFiles(directory=_assets), name="assets")
+
+    _index = os.path.join(_static, "index.html")
+
     @app.get("/{full_path:path}", include_in_schema=False)
     def serve_spa(full_path: str = ""):
-        # Rutas /api/* ya están manejadas por los routers anteriores
-        index = os.path.join(_static, "index.html")
-        return FileResponse(index)
+        return FileResponse(_index)
 else:
     @app.get("/", tags=["Health"])
     def root():
