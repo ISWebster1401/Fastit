@@ -10,8 +10,8 @@ from app.routers import products, checkout, webhooks, auth, orders, admin, advis
 import app.models  # noqa: F401
 
 from app.migrations import run as run_migrations
-run_migrations()
-Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)  # primero crear tablas
+run_migrations()                        # luego migraciones y seed
 
 app = FastAPI(
     title=settings.APP_NAME,
