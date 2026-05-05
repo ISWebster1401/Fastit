@@ -48,6 +48,11 @@ def health():
     return {"status": "ok", "app": settings.APP_NAME}
 
 
+# Sirve imágenes de productos subidas por el admin
+_products_img_dir = os.path.join(os.path.dirname(__file__), "..", "static", "products")
+os.makedirs(_products_img_dir, exist_ok=True)
+app.mount("/products-images", StaticFiles(directory=_products_img_dir), name="products-images")
+
 # Sirve el frontend compilado si existe el directorio static/
 _static = os.path.join(os.path.dirname(__file__), "..", "static")
 _assets = os.path.join(_static, "assets")

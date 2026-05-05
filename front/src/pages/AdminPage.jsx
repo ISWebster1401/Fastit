@@ -1,10 +1,14 @@
-import { useState, useEffect, Fragment } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import {
   AreaChart, Area, BarChart, Bar,
   PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
-import { adminGetOrders, adminGetStats, adminUpdateStatus, adminGetTimeline, adminGetUsers, adminDeleteUser, adminToggleActive } from '../api/client'
+import {
+  adminGetOrders, adminGetStats, adminUpdateStatus, adminGetTimeline,
+  adminGetUsers, adminDeleteUser, adminToggleActive,
+  adminGetProducts, adminDeleteProduct, adminImportPreview, adminImportConfirm,
+} from '../api/client'
 
 // ─── Constantes de estado ──────────────────────────────────────────────────────
 

@@ -4,14 +4,13 @@ import { persist } from 'zustand/middleware'
 // Los precios en Fast-IT están en USD (base mayorista).
 // Rates = cuántas unidades de la moneda destino por 1 USD.
 
-const SYMBOLS  = { USD: 'US$', CLP: '$', EUR: '€', BRL: 'R$' }
-const LOCALES  = { USD: 'en-US', CLP: 'es-CL', EUR: 'de-DE', BRL: 'pt-BR' }
-const DECIMALS = { USD: 2, CLP: 0, EUR: 2, BRL: 2 }
+const SYMBOLS  = { USD: 'US$', CLP: '$' }
+const LOCALES  = { USD: 'en-US', CLP: 'es-CL' }
+const DECIMALS = { USD: 2, CLP: 0 }
 
-// Fallback rates si la API no responde
-const FALLBACK_RATES = { USD: 1, CLP: 970, EUR: 0.93, BRL: 5.25 }
+const FALLBACK_RATES = { USD: 1, CLP: 970 }
 
-export const CURRENCY_LIST = ['USD', 'CLP', 'EUR', 'BRL']
+export const CURRENCY_LIST = ['USD', 'CLP']
 
 export const useCurrencyStore = create(
   persist(

@@ -85,4 +85,20 @@ export const adminGetStats     = () =>
 export const adminUpdateStatus = (orderId, status) =>
   api.patch(`/admin/orders/${orderId}/status`, { status }).then(r => r.data)
 
+// ─── Admin Products ───────────────────────────────────────────────────────────
+
+export const adminGetProducts = () =>
+  api.get('/admin/products').then(r => r.data)
+
+export const adminDeleteProduct = (productId) =>
+  api.delete(`/admin/products/${productId}`).then(r => r.data)
+
+export const adminImportPreview = (formData) =>
+  api.post('/admin/products/import/preview', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data)
+
+export const adminImportConfirm = (payload) =>
+  api.post('/admin/products/import/confirm', payload).then(r => r.data)
+
 export default api

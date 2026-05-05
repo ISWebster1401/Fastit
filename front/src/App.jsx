@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Navbar            from './components/layout/Navbar'
 import Footer            from './components/layout/Footer'
+import LandingPage       from './pages/LandingPage'
 import CatalogPage       from './pages/CatalogPage'
 import ProductDetailPage from './pages/ProductDetailPage'
 import CheckoutPage      from './pages/CheckoutPage'
@@ -40,7 +41,8 @@ function AppLayout() {
       <Navbar />
       <main className="flex-1">
         <Routes>
-          <Route path="/"             element={<CatalogPage />} />
+          <Route path="/"             element={<LandingPage />} />
+          <Route path="/catalog"      element={<CatalogPage />} />
           <Route path="/product/:sku" element={<ProductDetailPage />} />
           <Route path="/checkout"     element={<CheckoutPage />} />
           <Route path="/orders"       element={

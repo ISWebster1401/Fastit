@@ -47,7 +47,7 @@ export default function ProductDetailPage() {
   if (error || !product) return (
     <div className="max-w-4xl mx-auto px-4 py-16 text-center">
       <p className="text-[#6e6e73] dark:text-white/40 mb-4">{error || 'Producto no encontrado.'}</p>
-      <Link to="/" className="btn-secondary">Volver al catálogo</Link>
+      <Link to="/catalog" className="btn-secondary">Volver al catálogo</Link>
     </div>
   )
 
@@ -59,7 +59,7 @@ export default function ProductDetailPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
         {/* Breadcrumb */}
         <nav className="text-xs text-[#6e6e73] dark:text-white/40 mb-6 flex gap-2 items-center">
-          <Link to="/" className="hover:text-[#1e40af] dark:hover:text-blue-400 transition-colors">Catálogo</Link>
+          <Link to="/catalog" className="hover:text-[#1e40af] dark:hover:text-blue-400 transition-colors">Catálogo</Link>
           <span>/</span>
           <span className="text-[#6e6e73] dark:text-white/40">{product.category}</span>
           <span>/</span>

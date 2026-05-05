@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { advisorNextQuestion } from '../api/client'
 import { useCartStore, useAuthStore } from '../store/cartStore'
-import { useFormatPrice } from '../store/currencyStore'
 
 // ─── Casos de uso ─────────────────────────────────────────────────────────────
 
@@ -66,10 +65,12 @@ export default function AdvisorPage() {
   const [dir,                  setDir]                  = useState('adelante')
   const [mostrarComoFunciona,  setMostrarComoFunciona]  = useState(false)
 
-  const addItem     = useCartStore(s => s.addItem)
-  const cartItems   = useCartStore(s => s.items)
-  const formatPrice = useFormatPrice()
-  const user        = useAuthStore(s => s.user)
+  const addItem   = useCartStore(s => s.addItem)
+  const cartItems = useCartStore(s => s.items)
+  const user      = useAuthStore(s => s.user)
+
+  const formatUSD = (amount) =>
+    `US$${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
   const siguiente = async (casoActual, hist) => {
     setFase('cargando')
@@ -502,7 +503,7 @@ export default function AdvisorPage() {
 
                 {/* Productos */}
                 {rec.productos?.map((p, i) => (
-                  <ProductoCard key={p.id} producto={p} i={i} addItem={addItem} cartItems={cartItems} formatPrice={formatPrice}/>
+                  <ProductoCard key={p.id} producto={p} i={i} addItem={addItem} cartItems={cartItems} formatPrice={formatUSD}/>
                 ))}
 
                 {/* Alternativa */}
@@ -513,7 +514,7 @@ export default function AdvisorPage() {
                       Alternativa más económica
                     </p>
                     {rec.productos_alternativos.map((p, i) => (
-                      <ProductoCard key={p.id} producto={p} i={i} addItem={addItem} cartItems={cartItems} formatPrice={formatPrice}/>
+                      <ProductoCard key={p.id} producto={p} i={i} addItem={addItem} cartItems={cartItems} formatPrice={formatUSD}/>
                     ))}
                   </div>
                 )}

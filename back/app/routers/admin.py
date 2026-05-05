@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
@@ -8,6 +9,7 @@ from pydantic import BaseModel
 
 from app.database import get_db
 from app.models.order import Order, OrderItem, OrderStatus
+from app.models.product import Product
 from app.models.user import User
 from app.schemas.order import OrderOut
 from app.services.auth_service import require_admin
@@ -183,3 +185,195 @@ def toggle_active(
     user.is_active = not getattr(user, 'is_active', True)
     db.commit()
     return {"is_active": user.is_active}
+
+
+# ─── Icecat import flow ───────────────────────────────────────────────────────
+
+import os
+import shutil
+import uuid
+from datetime import timezone
+from fastapi import File, Form, UploadFile
+from app.services.icecat_service import parse_icecat_url, map_to_internal, get_provider
+from app.schemas.product import IcecatPreviewOut, IcecatImportConfirm
+from app.services.pricing import calculate_public_price
+
+_PRODUCTS_IMG_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "static", "products")
+
+
+def _ensure_img_dir():
+    os.makedirs(_PRODUCTS_IMG_DIR, exist_ok=True)
+
+
+@router.post("/products/import/preview", response_model=IcecatPreviewOut)
+async def import_preview(
+    icecat_url: str       = Form(...),
+    image_file: Optional[UploadFile] = File(default=None),
+    remove_bg:  bool      = Form(default=False),
+    db: Session           = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """
+    Step 1 — fetch Icecat data and return a preview payload for the admin to edit.
+    Optionally accept a custom image file.
+    remove_bg is accepted but background removal is not yet implemented (TODO).
+    """
+    # 1. Parse URL → product ID
+    try:
+        ref = parse_icecat_url(icecat_url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    # 2. Fetch from Icecat (real or mock)
+    provider = get_provider()
+    raw = await provider.fetch(ref.product_id)
+    if raw is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Producto con ID {ref.product_id} no encontrado en Icecat."
+        )
+
+    # 3. Map to internal preview
+    mapped = map_to_internal(raw, ref.source_url)
+
+    # 4. Handle uploaded image (overrides Icecat image)
+    final_image_url = mapped.image_url
+    if image_file and image_file.filename:
+        _ensure_img_dir()
+        ext      = os.path.splitext(image_file.filename)[-1].lower() or ".jpg"
+        filename = f"{uuid.uuid4().hex}{ext}"
+        dest     = os.path.join(_PRODUCTS_IMG_DIR, filename)
+        with open(dest, "wb") as fh:
+            shutil.copyfileobj(image_file.file, fh)
+        final_image_url = f"/products-images/{filename}"
+        # TODO: if remove_bg, apply rembg here before saving
+        if remove_bg:
+            import logging
+            logging.getLogger(__name__).info(
+                "remove_bg requested for %s — not yet implemented", filename
+            )
+
+    return IcecatPreviewOut(
+        icecat_product_id  = mapped.source_product_id,
+        source_url         = mapped.source_url,
+        sku                = mapped.sku,
+        name               = mapped.name,
+        brand              = mapped.brand,
+        category           = mapped.category,
+        description        = mapped.description,
+        technical_specs    = mapped.technical_specs,
+        image_url          = final_image_url,
+        raw_source_payload = mapped.raw_source_payload,
+    )
+
+
+@router.post("/products/import/confirm", response_model=dict)
+def import_confirm(
+    payload: IcecatImportConfirm,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """
+    Step 2 — create (or update) the product from the edited preview payload.
+    Returns the created/updated product id and sku.
+    """
+    existing = db.query(Product).filter(Product.sku == payload.sku).first()
+
+    if existing and not payload.update_existing:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": f"El SKU '{payload.sku}' ya existe.",
+                "existing_id": existing.id,
+                "hint": "Envía update_existing=true para sobreescribir.",
+            },
+        )
+
+    public_price = calculate_public_price(payload.base_price, payload.category)
+    now          = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    if existing and payload.update_existing:
+        existing.name               = payload.name
+        existing.brand              = payload.brand
+        existing.category           = payload.category
+        existing.description        = payload.description
+        existing.technical_specs    = payload.technical_specs
+        existing.image_url          = payload.image_url
+        existing.base_price         = payload.base_price
+        existing.public_price       = public_price
+        existing.stock_status       = payload.stock_status
+        existing.source             = "icecat"
+        existing.source_url         = payload.source_url
+        existing.source_product_id  = payload.icecat_product_id
+        existing.source_synced_at   = now
+        existing.raw_source_payload = payload.raw_source_payload
+        db.commit()
+        return {"action": "updated", "id": existing.id, "sku": existing.sku}
+
+    product = Product(
+        sku                = payload.sku,
+        name               = payload.name,
+        brand              = payload.brand,
+        category           = payload.category,
+        description        = payload.description,
+        technical_specs    = payload.technical_specs,
+        image_url          = payload.image_url,
+        base_price         = payload.base_price,
+        public_price       = public_price,
+        stock_status       = payload.stock_status,
+        source             = "icecat",
+        source_url         = payload.source_url,
+        source_product_id  = payload.icecat_product_id,
+        source_synced_at   = now,
+        raw_source_payload = payload.raw_source_payload,
+    )
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+    return {"action": "created", "id": product.id, "sku": product.sku}
+
+
+@router.get("/products")
+def list_admin_products(
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """List all products with source info for the admin panel."""
+    products = db.query(Product).order_by(Product.id.desc()).all()
+    return [
+        {
+            "id":               p.id,
+            "sku":              p.sku,
+            "name":             p.name,
+            "brand":            p.brand,
+            "category":         p.category,
+            "public_price":     float(p.public_price),
+            "stock_status":     p.stock_status.value,
+            "source":           getattr(p, "source", "manual"),
+            "source_url":       getattr(p, "source_url", None),
+            "source_synced_at": (
+                getattr(p, "source_synced_at", None).isoformat()
+                if getattr(p, "source_synced_at", None) else None
+            ),
+        }
+        for p in products
+    ]
+
+
+@router.delete("/products/{product_id}")
+def delete_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """Delete a product by ID (only if it has no associated orders)."""
+    from app.models.order import OrderItem
+    has_orders = db.query(OrderItem).filter(OrderItem.product_id == product_id).first()
+    if has_orders:
+        raise HTTPException(409, "No se puede eliminar: el producto tiene órdenes asociadas.")
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(404, "Producto no encontrado")
+    db.delete(product)
+    db.commit()
+    return {"message": f"Producto {product.sku} eliminado"}

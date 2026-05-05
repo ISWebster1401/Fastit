@@ -68,7 +68,7 @@ export default function OrdersPage() {
             </svg>
           </div>
           <p className="text-[#6e6e73] dark:text-white/40 text-sm">Aún no tienes órdenes.</p>
-          <Link to="/" className="btn-primary inline-block">Ver catálogo</Link>
+          <Link to="/catalog" className="btn-primary inline-block">Ver catálogo</Link>
         </div>
       ) : (
         <div className="space-y-4">

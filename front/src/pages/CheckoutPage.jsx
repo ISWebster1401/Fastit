@@ -94,7 +94,7 @@ export default function CheckoutPage() {
         </svg>
       </div>
       <p className="text-[#6e6e73] dark:text-white/40 text-sm">El carrito está vacío.</p>
-      <Link to="/" className="btn-primary inline-block">Ver catálogo</Link>
+      <Link to="/catalog" className="btn-primary inline-block">Ver catálogo</Link>
     </div>
   )
 

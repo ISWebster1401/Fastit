@@ -79,7 +79,7 @@ export default function PaymentResultPage() {
             <Link to="/orders" className="btn-primary px-6">
               Ver mis órdenes
             </Link>
-            <Link to="/" className="btn-secondary px-6">
+            <Link to="/catalog" className="btn-secondary px-6">
               Seguir comprando
             </Link>
           </>
@@ -88,7 +88,7 @@ export default function PaymentResultPage() {
             <Link to="/checkout" className="btn-primary px-6">
               Intentar de nuevo
             </Link>
-            <Link to="/" className="btn-secondary px-6">
+            <Link to="/catalog" className="btn-secondary px-6">
               Ir al catálogo
             </Link>
           </>

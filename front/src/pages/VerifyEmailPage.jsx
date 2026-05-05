@@ -40,7 +40,7 @@ export default function VerifyEmailPage() {
           Tu cuenta Fast-IT está activa. Ya puedes realizar pedidos.
         </p>
       </div>
-      <Link to="/" className="btn-primary px-8 inline-block">Ir al catálogo</Link>
+      <Link to="/catalog" className="btn-primary px-8 inline-block">Ir al catálogo</Link>
     </div>
   )
 

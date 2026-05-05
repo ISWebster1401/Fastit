@@ -65,7 +65,7 @@ export default function Navbar() {
 
         {/* Nav links */}
         <div className="hidden md:flex items-center gap-1 text-sm">
-          <NavLink to="/">Catálogo</NavLink>
+          <NavLink to="/catalog">Catálogo</NavLink>
           <NavLink to="/advisor">Solución a tu medida</NavLink>
           {user && <NavLink to="/orders">Mis Órdenes</NavLink>}
           {user?.is_admin && <NavLink to="/admin">Admin</NavLink>}
@@ -142,7 +142,7 @@ export default function Navbar() {
 
 function NavLink({ to, children }) {
   const { pathname } = useLocation()
-  const isActive = pathname === to || (to === '/advisor' && pathname === '/advisor')
+  const isActive = pathname === to || pathname.startsWith(to + '/')
   return (
     <Link to={to}
       className={`px-3 py-1.5 rounded-full text-sm transition-all duration-200 whitespace-nowrap ${

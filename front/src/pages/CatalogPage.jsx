@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import FilterSidebar from '../components/catalog/FilterSidebar'
 import ProductCard   from '../components/catalog/ProductCard'
 import { getProducts } from '../api/client'
 import { useAuthStore } from '../store/cartStore'
 
 export default function CatalogPage() {
-  const user     = useAuthStore(s => s.user)
+  const user            = useAuthStore(s => s.user)
+  const [searchParams]  = useSearchParams()
   const [products, setProducts] = useState([])
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState(null)
-  const [filters,  setFilters]  = useState({ brand: '', category: '' })
+  const [filters,  setFilters]  = useState({
+    brand: '',
+    category: searchParams.get('cat') || '',
+  })
 
   useEffect(() => {
     setLoading(true)
