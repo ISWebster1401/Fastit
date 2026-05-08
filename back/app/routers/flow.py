@@ -22,10 +22,13 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from decimal import Decimal
+
 from app.core.config import settings
 from app.database import get_db
 from app.models.order import Order, OrderStatus
 from app.services.auth_service import get_current_user
+from app.services.exchange_rate_service import get_usd_to_clp
 from app.services.supplier import supplier_service
 
 logger = logging.getLogger(__name__)
@@ -85,7 +88,12 @@ def create_flow_payment(
     if not order:
         raise HTTPException(404, "Orden pendiente no encontrada")
 
-    amount_clp = int(order.total_amount * settings.FLOW_CLP_RATE)
+    rate = get_usd_to_clp()
+    amount_clp = int(round(float(order.total_amount) * rate.rate))
+    if amount_clp <= 0:
+        raise HTTPException(400, "Monto inválido para iniciar pago")
+    order.exchange_rate_used = Decimal(str(rate.rate))
+    db.commit()
 
     params = {
         "apiKey":          settings.FLOW_API_KEY,

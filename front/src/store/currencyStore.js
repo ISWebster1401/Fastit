@@ -17,6 +17,7 @@ export const useCurrencyStore = create(
     (set, get) => ({
       currency:  'USD',
       rates:     FALLBACK_RATES,
+      rateMeta:  null,
       fetchedAt: null,
 
       setCurrency: (currency) => set({ currency }),
@@ -25,16 +26,20 @@ export const useCurrencyStore = create(
         const { fetchedAt } = get()
         if (fetchedAt && Date.now() - fetchedAt < 30 * 60 * 1000) return
         try {
-          const res  = await fetch(
-            'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json'
-          )
+          const res  = await fetch('/api/exchange-rate')
+          if (!res.ok) throw new Error('exchange-rate failed')
           const data = await res.json()
+          const clp = Number(data?.rate)
           set({
-            rates:     { USD: 1, CLP: data.usd.clp, EUR: data.usd.eur, BRL: data.usd.brl },
+            rates: {
+              USD: 1,
+              CLP: Number.isFinite(clp) && clp > 0 ? clp : FALLBACK_RATES.CLP,
+            },
+            rateMeta:  data,
             fetchedAt: Date.now(),
           })
         } catch {
-          set({ rates: FALLBACK_RATES, fetchedAt: Date.now() })
+          set({ rates: FALLBACK_RATES, rateMeta: null, fetchedAt: Date.now() })
         }
       },
     }),

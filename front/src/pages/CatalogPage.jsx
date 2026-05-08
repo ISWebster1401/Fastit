@@ -36,18 +36,18 @@ export default function CatalogPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-14 flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="max-w-xl">
               <p className="text-xs font-semibold text-[#1e40af] dark:text-blue-400 uppercase tracking-widest mb-3">
-                Plataforma B2B exclusiva
+                Hardware crítico, asesoría experta
               </p>
               <h1 className="text-4xl sm:text-5xl font-semibold text-[#0f172a] dark:text-white tracking-tight leading-tight mb-4">
-                Hardware crítico para empresas
+                Hardware crítico de confianza
               </h1>
               <p className="text-[#64748b] dark:text-white/50 text-lg leading-relaxed mb-8">
                 Servidores, storage y networking de las mejores marcas.
-                Precios mayoristas, cross-docking y despacho express.
+                Precios netos y despacho coordinado.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Link to="/login" className="btn-primary px-6 py-3 text-base">
-                  Registra tu empresa
+                  Crea tu cuenta
                 </Link>
                 <a href="#catalogo"
                   className="btn-secondary px-6 py-3 text-base"
@@ -61,9 +61,9 @@ export default function CatalogPage() {
             <div className="grid grid-cols-2 gap-4 shrink-0">
               {[
                 { value: '+500', label: 'Productos' },
-                { value: '24/48h', label: 'Despacho' },
+                { value: 'Stock', label: 'En tiempo real' },
                 { value: '4', label: 'Marcas líderes' },
-                { value: 'B2B', label: 'Factura disponible' },
+                { value: 'Boleta/Factura', label: 'Documentos disponibles' },
               ].map(({ value, label }) => (
                 <div key={label} className="bg-white dark:bg-white/[0.05] border border-[#e2e8f0] dark:border-white/[0.08] rounded-2xl px-5 py-4 text-center shadow-sm dark:shadow-none">
                   <p className="text-2xl font-semibold text-[#0f172a] dark:text-white tracking-tight">{value}</p>
@@ -83,7 +83,7 @@ export default function CatalogPage() {
               {user ? 'Catálogo de Hardware' : 'Explorar catálogo'}
             </h2>
             <p className="text-[#64748b] text-sm mt-2">
-              Storage | Servidores | Networking | Precios netos para empresas
+              Storage | Servidores | Networking | Precios netos
             </p>
           </div>
           {!user && (

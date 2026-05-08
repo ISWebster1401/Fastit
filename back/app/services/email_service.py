@@ -62,6 +62,41 @@ def send_verification_email(to_email: str, token: str) -> None:
     _send(to_email, "Verifica tu correo en Fast-IT", html)
 
 
+def send_password_reset_email(to_email: str, token: str) -> None:
+    link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+    logger.info("[RESET PASSWORD] %s → %s", to_email, link)
+
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:16px;">
+      <div style="text-align:center;margin-bottom:28px;">
+        <div style="display:inline-block;background:#1e40af;color:#fff;font-weight:700;font-size:18px;
+                    width:40px;height:40px;line-height:40px;border-radius:10px;margin-bottom:12px;">F</div>
+        <h1 style="margin:0;font-size:22px;color:#0f172a;">Restablece tu contraseña</h1>
+        <p style="margin:8px 0 0;color:#64748b;font-size:14px;">Fast-IT</p>
+      </div>
+
+      <p style="color:#334155;font-size:15px;line-height:1.6;">
+        Recibimos una solicitud para restablecer la contraseña de tu cuenta.
+        Haz clic en el botón para crear una nueva contraseña:
+      </p>
+
+      <div style="text-align:center;margin:28px 0;">
+        <a href="{link}"
+           style="background:#1e40af;color:#fff;padding:13px 32px;border-radius:999px;
+                  font-size:15px;font-weight:600;text-decoration:none;display:inline-block;">
+          Restablecer contraseña
+        </a>
+      </div>
+
+      <p style="color:#94a3b8;font-size:12px;text-align:center;margin-top:24px;">
+        Si no solicitaste este cambio, ignora este mensaje.<br>
+        Este enlace expira en 1 hora.
+      </p>
+    </div>
+    """
+    _send(to_email, "Restablece tu contraseña en Fast-IT", html)
+
+
 def send_welcome_email(to_email: str, name: str) -> None:
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;">

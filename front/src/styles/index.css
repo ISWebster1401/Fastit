@@ -305,22 +305,6 @@
   opacity: 0.6;
 }
 
-.auth-google {
-  display: flex;
-  height: 44px;
-  width: 100%;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  color: #0f172a;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
 .auth-guest {
   display: flex;
   height: 44px;

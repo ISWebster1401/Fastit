@@ -34,6 +34,14 @@ class Order(Base):
     invoice_business_name     = Column(String(255), nullable=True)
     invoice_business_activity = Column(String(255), nullable=True)
 
+    # Snapshot de datos de boleta (persona natural) al momento de la compra
+    boleta_full_name = Column(String(255), nullable=True)
+    boleta_rut       = Column(String(20),  nullable=True)
+    boleta_email     = Column(String(255), nullable=True)
+
+    # Tipo de cambio aplicado (USD → CLP) al momento de generar la orden
+    exchange_rate_used = Column(Numeric(10, 2), nullable=True)
+
     user  = relationship("User", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 

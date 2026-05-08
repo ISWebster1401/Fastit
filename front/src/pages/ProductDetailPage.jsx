@@ -122,7 +122,7 @@ export default function ProductDetailPage() {
                 </Link>
               )}
               <p className="text-xs text-[#6e6e73] dark:text-white/40 text-center">
-                Despacho via cross-docking
+                Despacho coordinado a todo Chile
               </p>
             </div>
             <div className="card p-4 space-y-2 text-xs text-[#6e6e73] dark:text-white/40">

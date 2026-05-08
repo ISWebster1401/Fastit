@@ -6,7 +6,7 @@ export default function Footer() {
           <div className="w-5 h-5 bg-[#1e40af] dark:bg-blue-500 rounded-md flex items-center justify-center text-white font-bold text-[9px]">F</div>
           <span className="text-[#0f172a] dark:text-white/50 font-medium">Fast-IT</span>
           <span className="text-[#e2e8f0] dark:text-white/10">|</span>
-          <span>Plataforma B2B de hardware crítico</span>
+          <span>Hardware crítico con asesoría experta</span>
           <span className="text-[#e2e8f0] dark:text-white/10">|</span>
           <span>© 2026 Fast-IT</span>
         </div>

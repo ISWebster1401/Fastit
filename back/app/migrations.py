@@ -77,6 +77,10 @@ def _apply_schema_migrations():
         "ALTER TABLE products ADD COLUMN source_product_id   VARCHAR(64)",
         "ALTER TABLE products ADD COLUMN source_synced_at    DATETIME",
         "ALTER TABLE products ADD COLUMN raw_source_payload  TEXT",
+        "ALTER TABLE orders   ADD COLUMN boleta_full_name    VARCHAR(255)",
+        "ALTER TABLE orders   ADD COLUMN boleta_rut          VARCHAR(20)",
+        "ALTER TABLE orders   ADD COLUMN boleta_email        VARCHAR(255)",
+        "ALTER TABLE orders   ADD COLUMN exchange_rate_used  NUMERIC(10,2)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

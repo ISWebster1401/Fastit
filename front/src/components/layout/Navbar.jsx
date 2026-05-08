@@ -25,7 +25,7 @@ export default function Navbar() {
   return (
     <header className="bg-white/90 dark:bg-[#04080f]/95 backdrop-blur-xl border-b border-[#e2e8f0]/80 dark:border-white/[0.06] sticky top-0 z-50 transition-colors duration-300">
       <div className="border-b border-[#e2e8f0]/60 dark:border-white/[0.04] text-[#64748b] dark:text-white/25 text-xs text-center py-1.5 tracking-wide">
-        Fast-IT | Distribución exclusiva de hardware crítico B2B
+        Fast-IT | Hardware crítico con asesoría experta
       </div>
 
       {/* Banner verificación pendiente */}
@@ -59,7 +59,7 @@ export default function Navbar() {
           </div>
           <div className="leading-none">
             <span className="block font-semibold text-[#0f172a] dark:text-white text-base tracking-tight">Fast-IT</span>
-            <span className="block text-[#94a3b8] dark:text-white/25 text-[10px] tracking-widest uppercase">Hardware B2B</span>
+            <span className="block text-[#94a3b8] dark:text-white/25 text-[10px] tracking-widest uppercase">Hardware crítico</span>
           </div>
         </Link>
 

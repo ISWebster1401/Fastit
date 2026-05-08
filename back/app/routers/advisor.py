@@ -236,6 +236,17 @@ HONESTIDAD TÉCNICA (diferenciador clave):
   b) La solución premium con argumento de future-proofing (escalabilidad sin cambiar chasis)
 - Ejemplo: "Para tus 5 VMs el DL20 cubre la necesidad y te ahorra $2M CLP. El DL380 tiene sentido si planeas escalar a 30+ VMs en 2 años."
 
+COMPATIBILIDAD TÉCNICA (obligatorio antes de recomendar combos):
+- Antes de combinar varios productos en una recomendación, verifica que sean técnicamente compatibles
+  consultando los specs (Form Factor, fuente requerida, Layer de red, redundancia, RAM máx, GPU, etc.).
+- Reglas mínimas:
+  • Servidor + switch: el switch debe tener Layer y Ports adecuados al uplink del servidor (ej: 1GbE/10GbE/SFP+).
+  • Servidor 2U + rack: confirma que el rack tenga U disponibles y la fuente coincida (Hot-plug Platinum, etc.).
+  • Storage SAN/SAS + servidor: el servidor debe tener HBA o controladora compatible con el protocolo del storage (SAS/iSCSI/FC).
+  • Workstation + GPU: revisa Power Supply suficiente y slots PCIe compatibles.
+- Si no hay specs suficientes en el contexto, llama get_catalog para obtenerlas antes de recomendar.
+- Si detectas una incompatibilidad, NO la propongas: explica el problema y ofrece alternativa válida.
+
 HEALTH-CHECK (antes de cerrar siempre):
 - Pregunta: "¿Tienes UPS, rack y cableado para este equipo?"
 - Si no tiene → usa get_catalog con category="accessories" para ofrecer lo disponible.
@@ -259,17 +270,55 @@ REGLAS FINALES:
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
+# Specs clave usadas para validar compatibilidad (form factor, fuente, layer, RAM, etc.)
+_KEY_SPEC_FIELDS = (
+    "Form Factor", "Factor de forma",
+    "Power Supply", "Power supply", "Power supply type", "Fuente",
+    "Layer", "Capa",
+    "Ports", "Puertos",
+    "PoE", "PoE Budget",
+    "Max RAM", "Memoria RAM", "Memory",
+    "GPU Slots", "GPU",
+    "Processor", "Procesador",
+    "Storage Bays",
+    "Uplinks",
+    "Switching capacity", "Switching Capacity",
+    "Interface", "Interfaz",
+    "Protocol",
+    "Type",
+)
+
+
+def _summarise_specs(specs: Optional[dict]) -> str:
+    """
+    Devuelve los specs clave en formato compacto: 'k1=v1; k2=v2'.
+    El asesor IA usa esto para verificar compatibilidad sin pedir get_catalog
+    para cada combo.
+    """
+    if not specs or not isinstance(specs, dict):
+        return ""
+    pairs = []
+    for key in _KEY_SPEC_FIELDS:
+        if key in specs and specs[key]:
+            pairs.append(f"{key}={specs[key]}")
+    return "; ".join(pairs[:6])  # limitamos para no saturar el contexto
+
+
 def _build_catalog_context(db: Session) -> str:
     products = db.query(Product).all()
     if not products:
         return "Catálogo vacío."
     lines = []
     for p in products:
-        lines.append(
+        spec_summary = _summarise_specs(p.technical_specs)
+        line = (
             f"ID:{p.id} | SKU:{p.sku} | {p.name} | {p.brand} | "
             f"Categoría:{p.category} | Stock:{p.stock_status.value} | "
             f"Precio:{int(p.public_price):,} CLP"
         )
+        if spec_summary:
+            line += f" | Specs:{spec_summary}"
+        lines.append(line)
     return "\n".join(lines)
 
 

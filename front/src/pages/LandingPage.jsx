@@ -71,18 +71,6 @@ const VALUE_PROPS = [
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-          d="M13 10V3L4 14h7v7l9-11h-7z"/>
-      </svg>
-    ),
-    title: 'Cross-docking directo',
-    desc: 'Sin bodega intermedia. El equipo sale del proveedor directo a tu rack. Velocidad y trazabilidad total.',
-    color: 'text-amber-400',
-    bg: 'bg-amber-400/10',
-  },
-  {
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
           d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
       </svg>
     ),
@@ -102,6 +90,18 @@ const VALUE_PROPS = [
     desc: 'Solo distribución oficial. HPE, Cisco, Dell, NetApp con garantía de fabricante y soporte NBD.',
     color: 'text-emerald-400',
     bg: 'bg-emerald-400/10',
+  },
+  {
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+          d="M3 10h18M3 14h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z"/>
+      </svg>
+    ),
+    title: 'Boleta y Factura',
+    desc: 'Compra con boleta personal o factura empresa. Pago seguro con Webpay y soporte directo.',
+    color: 'text-amber-400',
+    bg: 'bg-amber-400/10',
   },
 ]
 
@@ -130,7 +130,7 @@ export default function LandingPage() {
         {/* Badge */}
         <div className="relative mb-8 inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-xs text-blue-300/80 font-medium tracking-wider uppercase">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"/>
-          Plataforma B2B de hardware crítico
+          Hardware crítico, asesoría experta
         </div>
 
         {/* Headline */}
@@ -184,9 +184,9 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-2 sm:grid-cols-4 gap-8">
           {[
             { value: '8+',   label: 'Marcas enterprise' },
-            { value: '48h',  label: 'Tiempo de entrega' },
+            { value: 'Webpay', label: 'Pago seguro' },
             { value: 'GPT-4o', label: 'Asesor técnico IA' },
-            { value: '100%', label: 'Orientado a empresas' },
+            { value: 'Stock', label: 'Tiempo real' },
           ].map(s => (
             <div key={s.label} className="text-center">
               <p className="text-2xl font-bold text-white mb-1">{s.value}</p>

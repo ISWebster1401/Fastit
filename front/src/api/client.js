@@ -70,6 +70,12 @@ export const verifyEmail        = (token) =>
 export const resendVerification = () =>
   api.post('/auth/resend-verification').then(r => r.data)
 
+export const forgotPassword = (email) =>
+  api.post('/auth/forgot-password', { email }).then(r => r.data)
+
+export const resetPassword = (token, newPassword) =>
+  api.post('/auth/reset-password', { token, new_password: newPassword }).then(r => r.data)
+
 export const advisorChat = (category, messages) =>
   api.post('/advisor/chat', { category, messages }).then(r => r.data)
 
@@ -100,5 +106,11 @@ export const adminImportPreview = (formData) =>
 
 export const adminImportConfirm = (payload) =>
   api.post('/admin/products/import/confirm', payload).then(r => r.data)
+
+export const adminSupplierList = (search = '') =>
+  api.get('/admin/supplier/products', { params: search ? { search } : {} }).then(r => r.data)
+
+export const adminSupplierImportPreview = (supplierSku, margin) =>
+  api.post('/admin/products/import/from-supplier', { supplier_sku: supplierSku, margin }).then(r => r.data)
 
 export default api

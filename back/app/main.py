@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 
 from app.core.config import settings
 from app.database import Base, engine
-from app.routers import products, checkout, webhooks, auth, orders, admin, advisor, payments, flow
+from app.routers import products, checkout, webhooks, auth, orders, admin, advisor, payments, flow, meta
 import app.models  # noqa: F401
 
 from app.migrations import run as run_migrations
@@ -41,6 +41,7 @@ app.include_router(admin.router)
 app.include_router(advisor.router)
 app.include_router(payments.router)
 app.include_router(flow.router)
+app.include_router(meta.router)
 
 
 @app.get("/health", tags=["Health"])

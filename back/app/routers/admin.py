@@ -1,9 +1,12 @@
 import json
+import logging
 import os
 import shutil
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy import func
@@ -236,7 +239,12 @@ async def import_preview(
     if raw is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Producto con ID {ref.product_id} no encontrado en Icecat."
+            detail=(
+                f"Producto con ID {ref.product_id} no encontrado en Icecat. "
+                "Posibles causas: la marca no está en Open Icecat (requiere Full Icecat), "
+                "credenciales ICECAT_USERNAME ausentes/incorrectas, o ID inexistente. "
+                "Revisa los logs del backend para ver la respuesta exacta de la API."
+            ),
         )
 
     # 3. Map to internal preview
@@ -383,3 +391,99 @@ def delete_product(
     db.delete(product)
     db.commit()
     return {"message": f"Producto {product.sku} eliminado"}
+
+
+# ─── Supplier (mayorista) ─────────────────────────────────────────────────────
+
+from app.services.supplier import get_supplier_provider
+
+
+@router.get("/supplier/products")
+async def supplier_list(
+    search: str = Query(default="", max_length=100),
+    _=Depends(require_admin),
+):
+    """Lista productos del mayorista activo (default: mock)."""
+    provider = get_supplier_provider()
+    products = await provider.list_products(search)
+    return {
+        "provider": provider.name,
+        "count":    len(products),
+        "products": [p.to_dict() for p in products],
+    }
+
+
+class SupplierImportPreviewRequest(BaseModel):
+    supplier_sku: str
+    margin:       Optional[float] = None  # opcional: margen extra a aplicar al precio mayorista
+
+
+@router.post("/products/import/from-supplier")
+async def supplier_import_preview(
+    payload: SupplierImportPreviewRequest,
+    _=Depends(require_admin),
+):
+    """
+    Preview combinado mayorista + Icecat:
+      1. Trae el producto del mayorista (precio, nombre, stock, EAN).
+      2. Si tiene EAN, intenta enriquecer con Icecat (specs, imagen, descripción).
+      3. Devuelve un payload editable compatible con `/products/import/confirm`.
+    """
+    provider = get_supplier_provider()
+    product  = await provider.get_product(payload.supplier_sku)
+    if product is None:
+        raise HTTPException(404, f"Producto {payload.supplier_sku} no encontrado en {provider.name}")
+
+    enriched = None
+    icecat_meta = {"used": False, "reason": "no_ean"}
+    if product.ean:
+        ic_provider = get_provider()
+        try:
+            raw = await ic_provider.fetch_by_ean(product.ean)
+        except Exception as exc:
+            logger.exception("Icecat lookup failed for EAN %s: %s", product.ean, exc)
+            raw = None
+        if raw is not None:
+            enriched = map_to_internal(raw, source_url=f"icecat://ean/{product.ean}")
+            icecat_meta = {"used": True, "ean": product.ean, "icecat_id": enriched.source_product_id}
+        else:
+            icecat_meta = {"used": False, "reason": "ean_not_found", "ean": product.ean}
+
+    base_price = float(product.wholesale_price_usd)
+    if payload.margin and payload.margin > 0:
+        base_price = round(base_price * (1.0 + payload.margin), 2)
+
+    suggested_sku = product.supplier_sku
+    name          = enriched.name if enriched and enriched.name else product.name
+    brand         = enriched.brand if enriched and enriched.brand else product.brand
+    category      = enriched.category if enriched else (product.category or "servers")
+    description   = enriched.description if enriched else (product.short_desc or product.name)
+    image_url     = enriched.image_url if enriched and enriched.image_url else (product.image_url or "")
+    specs         = enriched.technical_specs if enriched else {}
+    raw_payload   = enriched.raw_source_payload if enriched else {}
+
+    return {
+        "supplier": {
+            "provider": provider.name,
+            "sku":      product.supplier_sku,
+            "stock":    product.stock,
+            "ean":      product.ean,
+            "wholesale_price_usd": product.wholesale_price_usd,
+        },
+        "icecat":  icecat_meta,
+        "preview": {
+            "icecat_product_id":  enriched.source_product_id if enriched else "",
+            "source_url":         enriched.source_url if enriched else "",
+            "sku":                suggested_sku,
+            "name":               name,
+            "brand":              brand,
+            "category":           category,
+            "description":        description,
+            "technical_specs":    specs,
+            "image_url":          image_url,
+            "base_price":         base_price,
+            "stock_status":       "available" if product.stock > 0 else "on_request",
+            "raw_source_payload": raw_payload,
+        },
+    }
+

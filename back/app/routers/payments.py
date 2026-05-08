@@ -13,10 +13,13 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from decimal import Decimal
+
 from app.core.config import settings
 from app.database import get_db
 from app.models.order import Order, OrderStatus
 from app.services.auth_service import get_current_user
+from app.services.exchange_rate_service import get_usd_to_clp
 from app.services.supplier import supplier_service
 
 logger = logging.getLogger(__name__)
@@ -61,11 +64,19 @@ def create_payment(
         raise HTTPException(404, "Orden pendiente no encontrada")
 
     try:
+        rate = get_usd_to_clp()
+        amount_clp = int(round(float(order.total_amount) * rate.rate))
+        if amount_clp <= 0:
+            raise HTTPException(400, "Monto inválido para iniciar pago")
+
+        order.exchange_rate_used = Decimal(str(rate.rate))
+        db.commit()
+
         tx = _build_transaction()
         response = tx.create(
             buy_order=f"{BUY_ORDER_PREFIX}{order.id}",
             session_id=f"U{current_user.id}",
-            amount=int(order.total_amount),
+            amount=amount_clp,
             return_url=f"{settings.BACKEND_URL}/api/payments/confirm",
         )
         return {"url": response["url"], "token": response["token"]}

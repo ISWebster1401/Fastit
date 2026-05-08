@@ -21,7 +21,10 @@ class Settings:
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o"
     NADILOP_ESCALATION_THRESHOLD_USD: float = 50_000.0
-    # Transbank WebpayPlus (defaults = integration/test credentials)
+    # Transbank WebpayPlus — pasarela ÚNICA (Flow queda dormido).
+    # Defaults son credenciales públicas de integración/sandbox.
+    # Cambiar TRANSBANK_COMMERCE_CODE, TRANSBANK_API_KEY y TRANSBANK_ENV=production
+    # cuando se tengan las credenciales reales del comercio.
     TRANSBANK_COMMERCE_CODE: str = "597055555532"
     TRANSBANK_API_KEY: str = "579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C"
     TRANSBANK_ENV: str = "test"  # "test" | "production"

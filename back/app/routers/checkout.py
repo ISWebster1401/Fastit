@@ -37,6 +37,9 @@ def checkout(
         invoice_rut               = payload.invoice_rut,
         invoice_business_name     = payload.invoice_business_name,
         invoice_business_activity = payload.invoice_business_activity,
+        boleta_full_name          = payload.boleta_full_name,
+        boleta_rut                = payload.boleta_rut,
+        boleta_email              = payload.boleta_email,
     )
     db.add(order)
     db.flush()

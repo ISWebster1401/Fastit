@@ -8,6 +8,7 @@ import {
   adminGetOrders, adminGetStats, adminUpdateStatus, adminGetTimeline,
   adminGetUsers, adminDeleteUser, adminToggleActive,
   adminGetProducts, adminDeleteProduct, adminImportPreview, adminImportConfirm,
+  adminSupplierList, adminSupplierImportPreview,
 } from '../api/client'
 
 // ─── Constantes de estado ──────────────────────────────────────────────────────
@@ -51,6 +52,7 @@ export default function AdminPage() {
   const [products,       setProducts]       = useState([])
   const [productsLoading,setProductsLoading]= useState(false)
   const [showImport,     setShowImport]     = useState(false)
+  const [showSupplier,   setShowSupplier]   = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -469,6 +471,17 @@ export default function AdminPage() {
                 Actualizar
               </button>
               <button
+                onClick={() => setShowSupplier(true)}
+                className="flex items-center gap-1.5 text-xs font-medium
+                           bg-emerald-600 hover:bg-emerald-700 text-white
+                           rounded-full px-4 py-1.5 transition-colors active:scale-[0.97]">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                </svg>
+                Importar desde Mayorista
+              </button>
+              <button
                 onClick={() => setShowImport(true)}
                 className="flex items-center gap-1.5 text-xs font-medium
                            bg-[#1e40af] hover:bg-[#1d4ed8] text-white
@@ -683,6 +696,17 @@ export default function AdminPage() {
           onCreated={(product) => {
             setShowImport(false)
             setProducts(prev => [product, ...prev])
+          }}
+        />
+      )}
+
+      {/* ── MODAL: IMPORTAR DESDE MAYORISTA ── */}
+      {showSupplier && (
+        <SupplierImportModal
+          onClose={() => setShowSupplier(false)}
+          onCreated={(product) => {
+            setShowSupplier(false)
+            refreshProducts()
           }}
         />
       )}
@@ -1297,6 +1321,395 @@ function InfoRow({ label, value }) {
     <div className="flex items-baseline gap-2 text-sm">
       <span className="text-xs text-[#86868b] dark:text-white/35 w-24 shrink-0">{label}</span>
       <span className="text-[#1d1d1f] dark:text-white font-medium">{value}</span>
+    </div>
+  )
+}
+
+// ─── SupplierImportModal ──────────────────────────────────────────────────────
+
+function SupplierImportModal({ onClose, onCreated }) {
+  const [step, setStep]               = useState('list')   // list | preview | saving
+  const [search, setSearch]           = useState('')
+  const [products, setProducts]       = useState([])
+  const [providerName, setProviderName] = useState('')
+  const [loading, setLoading]         = useState(false)
+  const [previewData, setPreviewData] = useState(null)
+  const [form, setForm]               = useState(null)
+  const [marginPct, setMarginPct]     = useState(25)
+  const [error, setError]             = useState(null)
+  const [dupError, setDupError]       = useState(null)
+
+  const setSpec    = (k, v) => setForm(f => ({ ...f, technical_specs: { ...(f.technical_specs || {}), [k]: v } }))
+  const removeSpec = (k)    => setForm(f => {
+    const s = { ...(f.technical_specs || {}) }
+    delete s[k]
+    return { ...f, technical_specs: s }
+  })
+
+  useEffect(() => {
+    let alive = true
+    const t = setTimeout(async () => {
+      setLoading(true)
+      try {
+        const data = await adminSupplierList(search)
+        if (alive) {
+          setProducts(data.products || [])
+          setProviderName(data.provider || '')
+        }
+      } catch {
+        if (alive) setError('No se pudo cargar el catálogo del mayorista.')
+      } finally {
+        if (alive) setLoading(false)
+      }
+    }, 250)
+    return () => { alive = false; clearTimeout(t) }
+  }, [search])
+
+  const handlePreview = async (supplierSku) => {
+    setError(null)
+    setLoading(true)
+    try {
+      const margin = Number.isFinite(marginPct) ? Math.max(0, marginPct) / 100 : 0
+      const data = await adminSupplierImportPreview(supplierSku, margin)
+      setPreviewData(data)
+      setForm({
+        ...data.preview,
+      })
+      setStep('preview')
+    } catch (err) {
+      setError(err.response?.data?.detail || 'No se pudo generar el preview.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleConfirm = async (updateExisting = false) => {
+    if (!form) return
+    setStep('saving')
+    setDupError(null)
+    try {
+      const result = await adminImportConfirm({
+        icecat_product_id:  form.icecat_product_id || '',
+        source_url:         form.source_url || `supplier://${providerName}/${previewData.supplier.sku}`,
+        sku:                form.sku,
+        name:               form.name,
+        brand:              form.brand,
+        category:           form.category,
+        description:        form.description || '',
+        technical_specs:    form.technical_specs || {},
+        image_url:          form.image_url || null,
+        base_price:         parseFloat(form.base_price),
+        stock_status:       form.stock_status,
+        raw_source_payload: form.raw_source_payload || {},
+        update_existing:    updateExisting,
+      })
+      onCreated(result)
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      if (err.response?.status === 409 && typeof detail === 'object') {
+        setDupError(detail)
+        setStep('preview')
+      } else {
+        setError(typeof detail === 'string' ? detail : 'Error al guardar el producto.')
+        setStep('preview')
+      }
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+         style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}>
+      <div className="bg-white dark:bg-[#0d1525] border border-[#e2e8f0] dark:border-white/[0.1]
+                      rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#e2e8f0] dark:border-white/[0.07]">
+          <div>
+            <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-0.5">
+              Mayorista {providerName && `· ${providerName}`}
+            </p>
+            <h2 className="text-lg font-semibold text-[#1d1d1f] dark:text-white">
+              {step === 'list' ? 'Importar desde Mayorista' : 'Preview combinado · Mayorista + Icecat'}
+            </h2>
+          </div>
+          <button onClick={onClose}
+            className="p-2 rounded-full text-[#64748b] dark:text-white/40
+                       hover:bg-[#f1f5f9] dark:hover:bg-white/[0.06] transition-all">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-5">
+
+          {step === 'list' && (
+            <>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar por nombre, marca, SKU o EAN…"
+                  className="input-field text-sm flex-1"
+                  autoFocus
+                />
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-[#6e6e73] dark:text-white/40 whitespace-nowrap">
+                    Margen %
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={marginPct}
+                    onChange={e => setMarginPct(Number(e.target.value))}
+                    className="input-field text-sm w-20"
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20
+                                text-red-700 dark:text-red-400 text-xs rounded-xl p-3">
+                  {error}
+                </div>
+              )}
+
+              <div className="border border-[#d2d2d7] dark:border-white/[0.07] rounded-xl overflow-hidden">
+                {loading ? (
+                  <div className="text-center py-10 text-sm text-[#6e6e73] dark:text-white/40">
+                    Cargando catálogo…
+                  </div>
+                ) : products.length === 0 ? (
+                  <div className="text-center py-10 text-sm text-[#6e6e73] dark:text-white/40">
+                    Sin resultados.
+                  </div>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-[#f5f5f7] dark:bg-white/[0.04] border-b border-[#d2d2d7] dark:border-white/[0.07]
+                                     text-[#6e6e73] dark:text-white/40 text-xs font-semibold uppercase tracking-wider">
+                        <th className="text-left px-3 py-2">SKU</th>
+                        <th className="text-left px-3 py-2">Producto</th>
+                        <th className="text-center px-3 py-2 hidden md:table-cell">Stock</th>
+                        <th className="text-right px-3 py-2">Mayorista USD</th>
+                        <th className="px-3 py-2 w-24"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#d2d2d7] dark:divide-white/[0.06]">
+                      {products.map(p => (
+                        <tr key={p.supplier_sku} className="hover:bg-[#f5f5f7] dark:hover:bg-white/[0.03] transition-colors">
+                          <td className="px-3 py-2 font-mono text-[10px] text-[#86868b] dark:text-white/35 font-semibold">
+                            {p.supplier_sku}
+                          </td>
+                          <td className="px-3 py-2">
+                            <p className="font-medium text-[#1d1d1f] dark:text-white text-xs truncate max-w-[260px]">{p.name}</p>
+                            <p className="text-[10px] text-[#86868b] dark:text-white/35">
+                              {p.brand}{p.ean ? ` · EAN ${p.ean}` : ''}
+                            </p>
+                          </td>
+                          <td className="px-3 py-2 text-center hidden md:table-cell">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                              p.stock > 5
+                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+                                : p.stock > 0
+                                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
+                                  : 'bg-red-50 text-red-700 dark:bg-red-500/20 dark:text-red-300'
+                            }`}>
+                              {p.stock} u.
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-right font-semibold text-[#1d1d1f] dark:text-white text-xs">
+                            US${Number(p.wholesale_price_usd).toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              onClick={() => handlePreview(p.supplier_sku)}
+                              className="text-[11px] font-medium bg-emerald-600 hover:bg-emerald-700 text-white
+                                         rounded-full px-3 py-1 transition-colors">
+                              Importar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <p className="text-[11px] text-[#94a3b8]">
+                Si el producto trae EAN, intentaremos enriquecerlo con specs e imagen desde Icecat.
+              </p>
+            </>
+          )}
+
+          {step === 'preview' && form && previewData && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="bg-[#f5f5f7] dark:bg-white/[0.04] rounded-xl px-3 py-2">
+                  <p className="text-[10px] uppercase text-[#6e6e73] dark:text-white/40 mb-0.5">Mayorista</p>
+                  <p className="font-mono text-[#1d1d1f] dark:text-white">{previewData.supplier.sku}</p>
+                  <p className="text-[10px] text-[#6e6e73] dark:text-white/40">
+                    Stock: {previewData.supplier.stock} · Costo USD ${previewData.supplier.wholesale_price_usd}
+                  </p>
+                </div>
+                <div className="bg-[#f5f5f7] dark:bg-white/[0.04] rounded-xl px-3 py-2">
+                  <p className="text-[10px] uppercase text-[#6e6e73] dark:text-white/40 mb-0.5">EAN / GTIN</p>
+                  <p className="font-mono text-[#1d1d1f] dark:text-white">
+                    {previewData.supplier.ean || '—'}
+                  </p>
+                </div>
+                <div className={`rounded-xl px-3 py-2 ${
+                  previewData.icecat.used
+                    ? 'bg-blue-50 dark:bg-blue-500/10'
+                    : 'bg-amber-50 dark:bg-amber-500/10'
+                }`}>
+                  <p className="text-[10px] uppercase text-[#6e6e73] dark:text-white/40 mb-0.5">Icecat</p>
+                  <p className={`text-xs font-medium ${
+                    previewData.icecat.used
+                      ? 'text-blue-700 dark:text-blue-300'
+                      : 'text-amber-700 dark:text-amber-300'
+                  }`}>
+                    {previewData.icecat.used
+                      ? `Enriquecido · ID ${previewData.icecat.icecat_id}`
+                      : `Sin enriquecer (${previewData.icecat.reason})`}
+                  </p>
+                </div>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20
+                                text-red-700 dark:text-red-400 text-xs rounded-xl p-3">{error}</div>
+              )}
+              {dupError && (
+                <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20
+                                text-amber-800 dark:text-amber-300 text-xs rounded-xl p-3 space-y-2">
+                  <p>{dupError.message}</p>
+                  <button
+                    onClick={() => handleConfirm(true)}
+                    className="text-[11px] font-medium underline">
+                    Sobreescribir producto existente (#{dupError.existing_id})
+                  </button>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="SKU"     value={form.sku}     onChange={v => setForm(f => ({ ...f, sku: v }))} />
+                <Field label="Marca"   value={form.brand}   onChange={v => setForm(f => ({ ...f, brand: v }))} />
+                <Field label="Nombre" full value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} />
+                <Select label="Categoría" value={form.category} options={CATEGORY_OPTIONS}
+                  onChange={v => setForm(f => ({ ...f, category: v }))} />
+                <Select label="Stock" value={form.stock_status}
+                  options={STOCK_OPTIONS.map(o => o.value)}
+                  labelMap={Object.fromEntries(STOCK_OPTIONS.map(o => [o.value, o.label]))}
+                  onChange={v => setForm(f => ({ ...f, stock_status: v }))} />
+                <Field label="Precio base USD"
+                  type="number"
+                  value={form.base_price}
+                  onChange={v => setForm(f => ({ ...f, base_price: v }))} />
+                <Field full label="URL imagen"
+                  value={form.image_url || ''}
+                  onChange={v => setForm(f => ({ ...f, image_url: v }))} />
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-[#1d1d1f] dark:text-white mb-1.5">Descripción</label>
+                  <textarea
+                    value={form.description || ''}
+                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                    rows={3}
+                    className="input-field text-sm w-full"
+                  />
+                </div>
+              </div>
+
+              {form.image_url && (
+                <div className="flex items-center gap-3">
+                  <img src={form.image_url} alt="" className="w-20 h-20 object-contain border border-[#e2e8f0] dark:border-white/[0.08] rounded-lg" />
+                  <p className="text-[11px] text-[#6e6e73] dark:text-white/40 break-all">{form.image_url}</p>
+                </div>
+              )}
+
+              <div>
+                <p className="text-xs font-semibold text-[#6e6e73] dark:text-white/40 uppercase tracking-wider mb-2">
+                  Especificaciones técnicas ({Object.keys(form.technical_specs || {}).length})
+                </p>
+                {Object.keys(form.technical_specs || {}).length === 0 ? (
+                  <p className="text-[11px] text-[#94a3b8]">Sin specs (no hubo enriquecimiento Icecat o producto sin EAN).</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {Object.entries(form.technical_specs || {}).map(([k, v]) => (
+                      <div key={k} className="flex gap-2 items-center">
+                        <input
+                          value={k}
+                          readOnly
+                          className="input-field text-xs flex-1 opacity-60"
+                        />
+                        <input
+                          value={v}
+                          onChange={e => setSpec(k, e.target.value)}
+                          className="input-field text-xs flex-[2]"
+                        />
+                        <button onClick={() => removeSpec(k)}
+                          className="p-1.5 rounded-md text-[#64748b] hover:bg-red-50 hover:text-red-600">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#e2e8f0] dark:border-white/[0.07]">
+                <button onClick={() => setStep('list')}
+                  className="text-xs px-4 py-2 rounded-full border border-[#e2e8f0] dark:border-white/[0.1]
+                             text-[#64748b] dark:text-white/50 hover:border-[#94a3b8]">
+                  Volver al catálogo
+                </button>
+                <button onClick={() => handleConfirm(false)}
+                  className="text-xs px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium">
+                  Guardar producto
+                </button>
+              </div>
+            </>
+          )}
+
+          {step === 'saving' && (
+            <div className="text-center py-12 text-sm text-[#6e6e73] dark:text-white/40">
+              Guardando producto…
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Field({ label, value, onChange, full = false, type = 'text' }) {
+  return (
+    <div className={full ? 'sm:col-span-2' : ''}>
+      <label className="block text-xs font-medium text-[#1d1d1f] dark:text-white mb-1.5">{label}</label>
+      <input
+        type={type}
+        value={value ?? ''}
+        onChange={e => onChange(type === 'number' ? Number(e.target.value) : e.target.value)}
+        className="input-field text-sm w-full"
+      />
+    </div>
+  )
+}
+
+function Select({ label, value, options, labelMap = {}, onChange }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-[#1d1d1f] dark:text-white mb-1.5">{label}</label>
+      <select
+        value={value || ''}
+        onChange={e => onChange(e.target.value)}
+        className="input-field text-sm w-full"
+      >
+        {options.map(o => (
+          <option key={o} value={o}>{labelMap[o] || o}</option>
+        ))}
+      </select>
     </div>
   )
 }

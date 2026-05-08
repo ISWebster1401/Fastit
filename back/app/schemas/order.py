@@ -27,8 +27,12 @@ class CheckoutRequest(BaseModel):
     invoice_business_name    : Optional[str] = None
     invoice_business_activity: Optional[str] = None
 
+    boleta_full_name: Optional[str] = None
+    boleta_rut      : Optional[str] = None
+    boleta_email    : Optional[str] = None
+
     @model_validator(mode="after")
-    def validate_factura_fields(self):
+    def validate_document_fields(self):
         if self.document_type == DocumentType.factura:
             missing = [
                 label for label, val in {
@@ -39,6 +43,17 @@ class CheckoutRequest(BaseModel):
             ]
             if missing:
                 raise ValueError(f"Factura requiere: {', '.join(missing)}")
+
+        if self.document_type == DocumentType.boleta:
+            missing = [
+                label for label, val in {
+                    "Nombre completo": self.boleta_full_name,
+                    "RUT"            : self.boleta_rut,
+                    "Email"          : self.boleta_email,
+                }.items() if not val
+            ]
+            if missing:
+                raise ValueError(f"Boleta requiere: {', '.join(missing)}")
         return self
 
 
@@ -52,6 +67,10 @@ class OrderOut(BaseModel):
     invoice_rut              : Optional[str] = None
     invoice_business_name    : Optional[str] = None
     invoice_business_activity: Optional[str] = None
+    boleta_full_name         : Optional[str] = None
+    boleta_rut               : Optional[str] = None
+    boleta_email             : Optional[str] = None
+    exchange_rate_used       : Optional[float] = None
     client_name              : Optional[str] = None
     client_email             : Optional[str] = None
     items                    : list[OrderItemOut] = []

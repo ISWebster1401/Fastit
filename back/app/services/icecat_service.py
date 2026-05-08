@@ -159,21 +159,70 @@ def _extract_specs(features_groups: list) -> dict[str, str]:
 
 
 def _parse_icecat_json(payload: dict, product_id: str) -> Optional[RawIcecatProduct]:
-    """Parse an Icecat REST API response dict (real or mock) into RawIcecatProduct."""
-    data = payload.get("data") or payload  # handle wrapped or flat response
+    """
+    Parse an Icecat response dict into RawIcecatProduct.
+    Supports two shapes:
+      A) Icecat LIVE JSON: { "msg": "OK", "data": { "GeneralInfo": {...}, "Image": {...}, "FeaturesGroups": [...] } }
+      B) Flat / mock shape: { "Title": "...", "Brand": "...", "FeaturesGroups": [...] }
+    """
+    if not payload:
+        return None
+
+    if isinstance(payload, dict) and payload.get("msg") and payload.get("msg") != "OK":
+        return None
+
+    data = payload.get("data") or payload
     if not data or data.get("ErrorMessage"):
         return None
+
+    general = data.get("GeneralInfo") or {}
+    image   = data.get("Image") or {}
+
+    if general:
+        title = (
+            general.get("Title")
+            or general.get("ProductName")
+            or ""
+        )
+        brand_obj   = general.get("Brand") or general.get("BrandName") or ""
+        brand_name  = brand_obj.get("Value") if isinstance(brand_obj, dict) else brand_obj
+        description = general.get("Description") or {}
+        short_desc  = (
+            description.get("ShortDesc") if isinstance(description, dict) else ""
+        ) or general.get("ShortDesc", "")
+        long_desc   = (
+            description.get("LongDesc") if isinstance(description, dict) else ""
+        ) or general.get("LongDesc", short_desc)
+        category_obj = general.get("Category") or {}
+        category_nm_obj = category_obj.get("Name") if isinstance(category_obj, dict) else None
+        category_name = (
+            category_nm_obj.get("Value") if isinstance(category_nm_obj, dict) else category_nm_obj
+        ) or "servers"
+        image_url = (
+            (image.get("HighPic") if isinstance(image, dict) else "")
+            or general.get("HighPicURL", "")
+        )
+        product_id_val = str(general.get("IcecatId") or general.get("ProductID") or product_id)
+    else:
+        title          = data.get("Title", "")
+        brand_name     = data.get("Brand", "")
+        short_desc     = data.get("ShortDesc", "")
+        long_desc      = data.get("LongDesc", short_desc)
+        category_obj   = data.get("Category") or {}
+        category_name  = (category_obj.get("Name") if isinstance(category_obj, dict) else category_obj) or "servers"
+        image_url      = data.get("HighPicURL") or data.get("HighPic") or ""
+        product_id_val = str(data.get("ProductID", product_id))
 
     specs = _extract_specs(data.get("FeaturesGroups", []))
 
     return RawIcecatProduct(
-        product_id    = str(data.get("ProductID", product_id)),
-        title         = data.get("Title", "").strip(),
-        brand         = data.get("Brand", "").strip(),
-        short_desc    = data.get("ShortDesc", "").strip(),
-        long_desc     = data.get("LongDesc", data.get("ShortDesc", "")).strip(),
-        image_url     = data.get("HighPicURL", data.get("HighPic", "")).strip(),
-        category_name = (data.get("Category") or {}).get("Name", "servers"),
+        product_id    = product_id_val,
+        title         = (title or "").strip(),
+        brand         = (brand_name or "").strip(),
+        short_desc    = (short_desc or "").strip(),
+        long_desc     = (long_desc or short_desc or title or "").strip(),
+        image_url     = (image_url or "").strip(),
+        category_name = category_name,
         specs         = specs,
         raw           = payload,
     )
@@ -211,6 +260,13 @@ class IcecatProvider(ABC):
     async def fetch(self, product_id: str) -> Optional[RawIcecatProduct]:
         ...
 
+    async def fetch_by_ean(self, ean: str) -> Optional[RawIcecatProduct]:
+        """
+        Default: not supported. Providers que soporten lookup por EAN deben
+        sobrescribir este método (ej: OpenIcecatProvider usa el endpoint EAN).
+        """
+        return None
+
 
 class OpenIcecatProvider(IcecatProvider):
     """
@@ -224,32 +280,94 @@ class OpenIcecatProvider(IcecatProvider):
         self.password = password
 
     async def fetch(self, product_id: str) -> Optional[RawIcecatProduct]:
+        """
+        Fetch product data from Icecat LIVE JSON API.
+        Endpoint:
+          https://live.icecat.biz/api/?UserName={shopname}&Language=es&icecat_id={id}
+
+        Notes:
+          - Open Icecat (free) returns only sponsored brands.
+          - Lenovo, Cisco, NetApp, Dell EMC, etc. require Full Icecat (paid).
+          - On non-OK responses we log the message so admins know why it failed.
+        """
         import httpx
-        url    = f"https://icecat.biz/api/products/{product_id}"
-        params = {"shopname": self.username, "lang": "en"}
+
+        url    = "https://live.icecat.biz/api/"
+        params = {
+            "UserName":   self.username,
+            "Language":   os.getenv("ICECAT_LANG", "es"),
+            "icecat_id":  product_id,
+        }
 
         try:
-            async with httpx.AsyncClient(timeout=15) as client:
+            async with httpx.AsyncClient(timeout=20) as client:
                 resp = await client.get(
-                    url, params=params,
+                    url,
+                    params=params,
                     auth=(self.username, self.password) if self.password else None,
                 )
         except Exception as exc:
             logger.error("Icecat HTTP error for product %s: %s", product_id, exc)
             return None
 
-        if resp.status_code == 404:
-            logger.info("Icecat: product %s not found (404)", product_id)
-            return None
         if resp.status_code != 200:
-            logger.warning("Icecat API %s → %s %s", product_id, resp.status_code, resp.text[:200])
+            logger.warning("Icecat API %s → HTTP %s %s",
+                           product_id, resp.status_code, resp.text[:200])
             return None
 
         try:
-            return _parse_icecat_json(resp.json(), product_id)
+            payload = resp.json()
         except Exception as exc:
-            logger.error("Icecat parse error for product %s: %s", product_id, exc)
+            logger.error("Icecat: invalid JSON for product %s: %s", product_id, exc)
             return None
+
+        msg = payload.get("msg")
+        if msg and msg != "OK":
+            logger.info("Icecat: product %s rejected by API: %s", product_id, msg)
+            return None
+
+        return _parse_icecat_json(payload, product_id)
+
+    async def fetch_by_ean(self, ean: str) -> Optional[RawIcecatProduct]:
+        """
+        Lookup por EAN/GTIN usando el endpoint LIVE.
+        https://live.icecat.biz/api/?UserName={shopname}&Language=es&GTIN={ean}
+        """
+        import httpx
+
+        url    = "https://live.icecat.biz/api/"
+        params = {
+            "UserName": self.username,
+            "Language": os.getenv("ICECAT_LANG", "es"),
+            "GTIN":     ean,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(
+                    url,
+                    params=params,
+                    auth=(self.username, self.password) if self.password else None,
+                )
+        except Exception as exc:
+            logger.error("Icecat HTTP error EAN %s: %s", ean, exc)
+            return None
+
+        if resp.status_code != 200:
+            logger.warning("Icecat EAN %s → HTTP %s %s", ean, resp.status_code, resp.text[:200])
+            return None
+
+        try:
+            payload = resp.json()
+        except Exception as exc:
+            logger.error("Icecat: invalid JSON for EAN %s: %s", ean, exc)
+            return None
+
+        msg = payload.get("msg")
+        if msg and msg != "OK":
+            logger.info("Icecat: EAN %s rejected by API: %s", ean, msg)
+            return None
+
+        return _parse_icecat_json(payload, ean)
 
 
 class MockIcecatProvider(IcecatProvider):
@@ -341,6 +459,14 @@ class MockIcecatProvider(IcecatProvider):
         raw["ProductID"] = int(product_id) if product_id.isdigit() else 0
         logger.info("MockIcecatProvider: returning mock data for product_id=%s", product_id)
         return _parse_icecat_json({"data": raw}, product_id)
+
+    async def fetch_by_ean(self, ean: str) -> Optional[RawIcecatProduct]:
+        # En modo mock, devolvemos el primer producto del catálogo como muestra de
+        # enriquecimiento — útil para probar la UI sin credenciales reales.
+        if not self._MOCK_CATALOG:
+            return None
+        first_id = next(iter(self._MOCK_CATALOG.keys()))
+        return await self.fetch(first_id)
 
 
 # ─── Provider factory ─────────────────────────────────────────────────────────

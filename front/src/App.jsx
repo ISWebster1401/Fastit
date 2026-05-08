@@ -11,6 +11,8 @@ import AdminPage          from './pages/AdminPage'
 import AdvisorPage        from './pages/AdvisorPage'
 import PaymentResultPage  from './pages/PaymentResultPage'
 import VerifyEmailPage    from './pages/VerifyEmailPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage  from './pages/ResetPasswordPage'
 import { AuthProvider } from './context/AuthContext'
 import { useAuth } from './context/useAuth'
 
@@ -68,6 +70,8 @@ export default function App() {
           <Route path="/advisor"         element={<AdvisorPage />} />
           <Route path="/payment-result"  element={<PaymentResultPage />} />
           <Route path="/verify-email"    element={<VerifyEmailPage />} />
+          <Route path="/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
+          <Route path="/reset-password"  element={<ResetPasswordPage />} />
           <Route path="/*"       element={<AppLayout />} />
         </Routes>
       </BrowserRouter>

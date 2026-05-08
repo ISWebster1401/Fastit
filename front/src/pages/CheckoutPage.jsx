@@ -30,11 +30,13 @@ export default function CheckoutPage() {
   const [docType, setDocType] = useState('Boleta')
   const [form, setForm]       = useState({
     invoice_rut: '', invoice_business_name: '', invoice_business_activity: '',
+    boleta_full_name: '', boleta_rut: '', boleta_email: '',
   })
   const [loading,   setLoading]   = useState(false)
   const [step,      setStep]      = useState('cart')
   const [error,     setError]     = useState(null)
-  const [pasarela,  setPasarela]  = useState('transbank') // 'transbank' | 'flow'
+  // Solo Transbank (sandbox) por ahora — Flow queda dormido pero funcional
+  const pasarela = 'transbank'
 
   const total = items.reduce((sum, i) => sum + i.public_price * i.quantity, 0)
 
@@ -50,7 +52,17 @@ export default function CheckoutPage() {
       const orderPayload = {
         document_type: docType,
         items: items.map(i => ({ product_id: i.id, quantity: i.quantity })),
-        ...(docType === 'Factura' ? form : {}),
+        ...(docType === 'Factura'
+          ? {
+              invoice_rut: form.invoice_rut,
+              invoice_business_name: form.invoice_business_name,
+              invoice_business_activity: form.invoice_business_activity,
+            }
+          : {
+              boleta_full_name: form.boleta_full_name,
+              boleta_rut: form.boleta_rut,
+              boleta_email: form.boleta_email,
+            }),
       }
       const order = await checkout(orderPayload)
       clearCart()
@@ -198,6 +210,26 @@ export default function CheckoutPage() {
                 </div>
               </div>
             )}
+
+            {docType === 'Boleta' && (
+              <div className="space-y-3 border-t border-[#d2d2d7] dark:border-white/[0.07] pt-4">
+                <div>
+                  <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">Nombre completo *</label>
+                  <input name="boleta_full_name" value={form.boleta_full_name} onChange={handleField}
+                    placeholder="Juan Pérez González" required className="input-field" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">RUT *</label>
+                  <input name="boleta_rut" value={form.boleta_rut} onChange={handleField}
+                    placeholder="12.345.678-9" required className="input-field" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">Email *</label>
+                  <input type="email" name="boleta_email" value={form.boleta_email} onChange={handleField}
+                    placeholder="tu@correo.cl" required className="input-field" />
+                </div>
+              </div>
+            )}
           </div>
 
           {error && (
@@ -238,30 +270,14 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            {/* Selector de pasarela */}
+            {/* Método de pago — solo Transbank por ahora */}
             <div>
               <p className="text-xs text-[#6e6e73] dark:text-white/40 mb-2">Método de pago</p>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: 'transbank', label: 'Transbank', sub: 'WebpayPlus' },
-                  { id: 'flow',      label: 'Flow',       sub: 'flow.cl'    },
-                ].map(p => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setPasarela(p.id)}
-                    className={`rounded-xl border py-2.5 px-3 text-left transition-all ${
-                      pasarela === p.id
-                        ? 'border-[#1e40af] bg-[#eff6ff] dark:border-blue-500 dark:bg-blue-500/[0.12]'
-                        : 'border-[#d2d2d7] dark:border-white/[0.1] hover:border-[#86868b] dark:hover:border-white/25'
-                    }`}
-                  >
-                    <p className={`text-xs font-semibold ${pasarela === p.id ? 'text-[#1e40af] dark:text-blue-300' : 'text-[#1d1d1f] dark:text-white'}`}>
-                      {p.label}
-                    </p>
-                    <p className="text-[10px] text-[#6e6e73] dark:text-white/35">{p.sub}</p>
-                  </button>
-                ))}
+              <div className="rounded-xl border border-[#1e40af] bg-[#eff6ff] dark:border-blue-500 dark:bg-blue-500/[0.12] py-2.5 px-3">
+                <p className="text-xs font-semibold text-[#1e40af] dark:text-blue-300">Transbank Webpay</p>
+                <p className="text-[10px] text-[#6e6e73] dark:text-white/35">
+                  Pago seguro · Tarjetas de crédito y débito
+                </p>
               </div>
             </div>
 
@@ -284,13 +300,13 @@ export default function CheckoutPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                   </svg>
-                  Pagar con {pasarela === 'flow' ? 'Flow' : 'Transbank'}
+                  Pagar con Transbank
                 </>
               )}
             </button>
 
             <p className="text-xs text-[#6e6e73] dark:text-white/30 text-center">
-              Pago seguro vía {pasarela === 'flow' ? 'Flow.cl' : 'Transbank WebpayPlus'}
+              Pago seguro vía Transbank Webpay
             </p>
           </div>
         </div>
