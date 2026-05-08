@@ -3,7 +3,7 @@ services:
     name: fastit
     runtime: python
     buildCommand: bash build.sh && pip install -r back/requirements.txt
-    startCommand: cd back && python add_admin.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: cd back && bash startup.sh
     envVars:
       - key: SECRET_KEY
         generateValue: true
