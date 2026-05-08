@@ -28,7 +28,7 @@ class Product(Base):
     stock_status    = Column(Enum(StockStatus), default=StockStatus.on_request)
 
     # Trazabilidad de origen (manual | icecat | ...)
-    source             = Column(String(20), default="manual", nullable=False)
+    source             = Column(String(20), server_default="manual", nullable=False)
     source_url         = Column(String(512), nullable=True)
     source_product_id  = Column(String(64),  nullable=True)
     source_synced_at   = Column(DateTime,    nullable=True)

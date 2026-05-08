@@ -45,9 +45,12 @@ export default function AdminPage() {
   const [expandedId,   setExpandedId]   = useState(null)
   const [updating,     setUpdating]     = useState(null)
   const [timelineDays, setTimelineDays] = useState(30)
-  const [tab,          setTab]          = useState('dashboard') // 'dashboard' | 'orders' | 'users'
-  const [users,        setUsers]        = useState([])
-  const [usersLoading, setUsersLoading] = useState(false)
+  const [tab,            setTab]            = useState('dashboard')
+  const [users,          setUsers]          = useState([])
+  const [usersLoading,   setUsersLoading]   = useState(false)
+  const [products,       setProducts]       = useState([])
+  const [productsLoading,setProductsLoading]= useState(false)
+  const [showImport,     setShowImport]     = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -68,7 +71,26 @@ export default function AdminPage() {
       setUsersLoading(true)
       adminGetUsers().then(setUsers).catch(() => {}).finally(() => setUsersLoading(false))
     }
+    if (tab === 'products' && products.length === 0) {
+      setProductsLoading(true)
+      adminGetProducts().then(setProducts).catch(() => {}).finally(() => setProductsLoading(false))
+    }
   }, [tab]) // eslint-disable-line
+
+  const refreshProducts = () => {
+    setProductsLoading(true)
+    adminGetProducts().then(setProducts).catch(() => {}).finally(() => setProductsLoading(false))
+  }
+
+  const handleDeleteProduct = async (productId, sku) => {
+    if (!window.confirm(`¿Eliminar el producto ${sku}?`)) return
+    try {
+      await adminDeleteProduct(productId)
+      setProducts(prev => prev.filter(p => p.id !== productId))
+    } catch (err) {
+      alert(err.response?.data?.detail || 'No se pudo eliminar el producto.')
+    }
+  }
 
   const handleDeleteUser = async (userId, email) => {
     if (!window.confirm(`¿Eliminar al usuario ${email}? Esta acción también eliminará sus órdenes.`)) return
@@ -170,6 +192,7 @@ export default function AdminPage() {
           { id: 'dashboard', label: 'Dashboard' },
           { id: 'orders',    label: `Órdenes (${orders.length})` },
           { id: 'users',     label: `Usuarios (${stats?.total_users ?? '…'})` },
+          { id: 'products',  label: `Productos (${products.length || '…'})` },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
@@ -426,6 +449,113 @@ export default function AdminPage() {
           )}
         </div>
       )}
+      {/* ── TAB: PRODUCTOS ── */}
+      {tab === 'products' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-[#6e6e73] dark:text-white/40">
+              {products.length} producto{products.length !== 1 ? 's' : ''} en el catálogo
+            </p>
+            <div className="flex gap-2">
+              <button onClick={refreshProducts}
+                className="flex items-center gap-1.5 text-xs text-[#64748b] dark:text-white/40
+                           hover:text-[#1e40af] dark:hover:text-blue-400
+                           border border-[#e2e8f0] dark:border-white/[0.08] rounded-full px-3 py-1.5
+                           hover:border-[#1e40af] dark:hover:border-blue-400 transition-colors">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Actualizar
+              </button>
+              <button
+                onClick={() => setShowImport(true)}
+                className="flex items-center gap-1.5 text-xs font-medium
+                           bg-[#1e40af] hover:bg-[#1d4ed8] text-white
+                           rounded-full px-4 py-1.5 transition-colors active:scale-[0.97]">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
+                </svg>
+                Agregar desde Icecat
+              </button>
+            </div>
+          </div>
+
+          {productsLoading ? (
+            <div className="text-center py-16 text-[#6e6e73] dark:text-white/40 text-sm">Cargando productos…</div>
+          ) : (
+            <div className="border border-[#d2d2d7] dark:border-white/[0.07] rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[#f5f5f7] dark:bg-white/[0.04] border-b border-[#d2d2d7] dark:border-white/[0.07]
+                                   text-[#6e6e73] dark:text-white/40 text-xs font-semibold uppercase tracking-wider">
+                      <th className="text-left px-4 py-3">SKU</th>
+                      <th className="text-left px-4 py-3">Producto</th>
+                      <th className="text-left px-4 py-3 hidden md:table-cell">Categoría</th>
+                      <th className="text-left px-4 py-3 hidden lg:table-cell">Origen</th>
+                      <th className="text-center px-4 py-3">Stock</th>
+                      <th className="text-right px-4 py-3">Precio</th>
+                      <th className="px-4 py-3 w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#d2d2d7] dark:divide-white/[0.06]">
+                    {products.map(p => (
+                      <tr key={p.id} className="hover:bg-[#f5f5f7] dark:hover:bg-white/[0.03] transition-colors">
+                        <td className="px-4 py-3 font-mono text-[10px] text-[#86868b] dark:text-white/35 font-semibold">
+                          {p.sku}
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-[#1d1d1f] dark:text-white text-xs truncate max-w-[200px]">{p.name}</p>
+                          <p className="text-[10px] text-[#86868b] dark:text-white/35">{p.brand}</p>
+                        </td>
+                        <td className="px-4 py-3 hidden md:table-cell">
+                          <span className="text-xs text-[#6e6e73] dark:text-white/40 capitalize">{p.category}</span>
+                        </td>
+                        <td className="px-4 py-3 hidden lg:table-cell">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
+                            p.source === 'icecat'
+                              ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/30'
+                              : 'bg-[#f5f5f7] text-[#6e6e73] border-[#d2d2d7] dark:bg-white/[0.05] dark:text-white/40 dark:border-white/[0.08]'
+                          }`}>
+                            {p.source === 'icecat' ? '⬡ Icecat' : 'Manual'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            p.stock_status === 'available'  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' :
+                            p.stock_status === 'low_stock'  ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' :
+                            p.stock_status === 'on_request' ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' :
+                                                              'bg-red-50 text-red-700 dark:bg-red-500/20 dark:text-red-300'
+                          }`}>
+                            {{ available:'Disponible', low_stock:'Stock bajo', on_request:'Bajo pedido', out_of_stock:'Sin stock' }[p.stock_status]}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-[#1d1d1f] dark:text-white text-xs">
+                          US${Number(p.public_price).toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => handleDeleteProduct(p.id, p.sku)}
+                            className="p-1.5 rounded-lg text-[#64748b] dark:text-white/40
+                                       hover:bg-red-50 dark:hover:bg-red-500/10
+                                       hover:text-red-600 dark:hover:text-red-400 transition-all">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── TAB: USUARIOS ── */}
       {tab === 'users' && (
         <div>
@@ -546,6 +676,454 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* ── MODAL: IMPORTAR DESDE ICECAT ── */}
+      {showImport && (
+        <IcecatImportModal
+          onClose={() => setShowImport(false)}
+          onCreated={(product) => {
+            setShowImport(false)
+            setProducts(prev => [product, ...prev])
+          }}
+        />
+      )}
+
+    </div>
+  )
+}
+
+// ─── IcecatImportModal ────────────────────────────────────────────────────────
+
+const STOCK_OPTIONS = [
+  { value: 'available',    label: 'Disponible' },
+  { value: 'low_stock',    label: 'Stock bajo' },
+  { value: 'on_request',   label: 'Bajo pedido' },
+  { value: 'out_of_stock', label: 'Sin stock' },
+]
+
+const CATEGORY_OPTIONS = [
+  'servers', 'storage', 'networking', 'workstations', 'accessories',
+]
+
+function IcecatImportModal({ onClose, onCreated }) {
+  const [step,        setStep]        = useState('input')   // input | loading | preview | saving | done
+  const [url,         setUrl]         = useState('')
+  const [imageFile,   setImageFile]   = useState(null)
+  const [removeBg,    setRemoveBg]    = useState(false)
+  const [preview,     setPreview]     = useState(null)
+  const [apiError,    setApiError]    = useState(null)
+  const [dupError,    setDupError]    = useState(null)
+  const imageInputRef                 = useRef(null)
+
+  // Editable preview fields
+  const [form, setForm] = useState({})
+  const set = (key, val) => setForm(f => ({ ...f, [key]: val }))
+  const setSpec = (key, val) => setForm(f => ({
+    ...f,
+    technical_specs: { ...f.technical_specs, [key]: val },
+  }))
+  const removeSpec = (key) => setForm(f => {
+    const s = { ...f.technical_specs }
+    delete s[key]
+    return { ...f, technical_specs: s }
+  })
+
+  const handleFetch = async () => {
+    if (!url.trim()) return
+    setStep('loading')
+    setApiError(null)
+    setDupError(null)
+    try {
+      const fd = new FormData()
+      fd.append('icecat_url', url.trim())
+      fd.append('remove_bg',  removeBg ? 'true' : 'false')
+      if (imageFile) fd.append('image_file', imageFile)
+      const data = await adminImportPreview(fd)
+      setPreview(data)
+      setForm({
+        sku:             data.sku,
+        name:            data.name,
+        brand:           data.brand,
+        category:        data.category,
+        description:     data.description,
+        technical_specs: data.technical_specs || {},
+        image_url:       data.image_url || '',
+        base_price:      data.base_price || '',
+        stock_status:    data.stock_status || 'on_request',
+      })
+      setStep('preview')
+    } catch (err) {
+      setApiError(err.response?.data?.detail || 'Error al conectar con Icecat.')
+      setStep('input')
+    }
+  }
+
+  const handleConfirm = async (updateExisting = false) => {
+    setStep('saving')
+    setDupError(null)
+    try {
+      const result = await adminImportConfirm({
+        icecat_product_id:  preview.icecat_product_id,
+        source_url:         preview.source_url,
+        sku:                form.sku,
+        name:               form.name,
+        brand:              form.brand,
+        category:           form.category,
+        description:        form.description || '',
+        technical_specs:    form.technical_specs,
+        image_url:          form.image_url || null,
+        base_price:         parseFloat(form.base_price),
+        stock_status:       form.stock_status,
+        raw_source_payload: preview.raw_source_payload,
+        update_existing:    updateExisting,
+      })
+      onCreated(result)
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      if (err.response?.status === 409 && typeof detail === 'object') {
+        setDupError(detail)
+        setStep('preview')
+      } else {
+        setApiError(typeof detail === 'string' ? detail : 'Error al guardar el producto.')
+        setStep('preview')
+      }
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+         style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}>
+      <div className="bg-white dark:bg-[#0d1525] border border-[#e2e8f0] dark:border-white/[0.1]
+                      rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#e2e8f0] dark:border-white/[0.07]">
+          <div>
+            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-0.5">
+              Icecat Import
+            </p>
+            <h2 className="text-lg font-semibold text-[#1d1d1f] dark:text-white">
+              Agregar producto desde Icecat
+            </h2>
+          </div>
+          <button onClick={onClose}
+            className="p-2 rounded-full text-[#64748b] dark:text-white/40
+                       hover:bg-[#f1f5f9] dark:hover:bg-white/[0.06] transition-all">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-5">
+
+          {/* ── STEP: INPUT ── */}
+          {(step === 'input' || step === 'loading') && (
+            <>
+              {/* URL */}
+              <div>
+                <label className="block text-xs font-medium text-[#1d1d1f] dark:text-white mb-1.5">
+                  URL de Icecat <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={url}
+                  onChange={e => setUrl(e.target.value)}
+                  placeholder="https://icecat.biz/p/brand-model-12345.html  o  ID numérico"
+                  className="input-field text-sm w-full"
+                  disabled={step === 'loading'}
+                  onKeyDown={e => e.key === 'Enter' && handleFetch()}
+                />
+                <p className="text-[10px] text-[#94a3b8] mt-1">
+                  Pega la URL de la página del producto en icecat.biz o icecat.us, o el ID numérico.
+                </p>
+              </div>
+
+              {/* Image upload */}
+              <div>
+                <label className="block text-xs font-medium text-[#1d1d1f] dark:text-white mb-1.5">
+                  Imagen personalizada (opcional)
+                </label>
+                <div
+                  className="border-2 border-dashed border-[#e2e8f0] dark:border-white/[0.12] rounded-xl p-4
+                             text-center cursor-pointer hover:border-[#1e40af] dark:hover:border-blue-400 transition-colors"
+                  onClick={() => imageInputRef.current?.click()}
+                >
+                  {imageFile ? (
+                    <div className="flex items-center justify-center gap-2 text-sm text-[#1d1d1f] dark:text-white">
+                      <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
+                      </svg>
+                      {imageFile.name}
+                      <button onClick={e => { e.stopPropagation(); setImageFile(null) }}
+                        className="text-[#94a3b8] hover:text-red-500 transition-colors">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <svg className="w-8 h-8 mx-auto text-[#94a3b8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                      </svg>
+                      <p className="text-xs text-[#94a3b8]">Click para subir imagen (PNG, JPG, WebP)</p>
+                    </div>
+                  )}
+                </div>
+                <input ref={imageInputRef} type="file" accept="image/*" className="hidden"
+                  onChange={e => setImageFile(e.target.files?.[0] ?? null)}/>
+              </div>
+
+              {/* Remove BG */}
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <div
+                  onClick={() => setRemoveBg(v => !v)}
+                  className={`w-9 h-5 rounded-full transition-colors relative ${removeBg ? 'bg-blue-600' : 'bg-[#d1d5db] dark:bg-white/20'}`}>
+                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${removeBg ? 'translate-x-4' : 'translate-x-0.5'}`}/>
+                </div>
+                <span className="text-sm text-[#1d1d1f] dark:text-white">
+                  Quitar fondo automáticamente
+                </span>
+                <span className="text-[10px] text-[#94a3b8] bg-[#f1f5f9] dark:bg-white/[0.06] px-1.5 py-0.5 rounded">TODO</span>
+              </label>
+
+              {apiError && (
+                <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10
+                                border border-red-200 dark:border-red-500/20 rounded-xl px-4 py-3">
+                  {apiError}
+                </div>
+              )}
+
+              <button
+                onClick={handleFetch}
+                disabled={!url.trim() || step === 'loading'}
+                className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2
+                           bg-[#1e40af] hover:bg-[#1d4ed8] text-white transition-all disabled:opacity-50
+                           disabled:cursor-not-allowed active:scale-[0.98]">
+                {step === 'loading' ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    Consultando Icecat…
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                    </svg>
+                    Traer datos
+                  </>
+                )}
+              </button>
+            </>
+          )}
+
+          {/* ── STEP: PREVIEW (editable) ── */}
+          {(step === 'preview' || step === 'saving') && form && (
+            <>
+              <div className="flex items-center gap-2 text-xs text-[#94a3b8] bg-[#f8fafc] dark:bg-white/[0.04]
+                              border border-[#e2e8f0] dark:border-white/[0.07] rounded-xl px-3 py-2">
+                <svg className="w-3.5 h-3.5 text-blue-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                </svg>
+                Icecat ID: <strong className="text-[#1d1d1f] dark:text-white">{preview?.icecat_product_id}</strong>
+                <span className="mx-1">·</span>
+                Revisa y edita los campos antes de guardar. El precio base es requerido.
+              </div>
+
+              {/* Dup error */}
+              {dupError && (
+                <div className="text-xs bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20
+                                rounded-xl px-4 py-3 space-y-2">
+                  <p className="font-semibold text-amber-800 dark:text-amber-300">{dupError.message}</p>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleConfirm(true)}
+                      className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium transition-colors">
+                      Actualizar producto existente (ID #{dupError.existing_id})
+                    </button>
+                    <button onClick={() => setDupError(null)}
+                      className="px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs transition-colors">
+                      Cambiar SKU
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {apiError && (
+                <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10
+                                border border-red-200 dark:border-red-500/20 rounded-xl px-4 py-3">
+                  {apiError}
+                </div>
+              )}
+
+              {/* Image preview */}
+              {form.image_url && (
+                <div className="flex items-center gap-4">
+                  <img src={form.image_url} alt={form.name}
+                    className="w-20 h-20 object-contain rounded-xl border border-[#e2e8f0] dark:border-white/[0.1] bg-[#f8fafc] dark:bg-white/[0.04]"/>
+                  <div className="flex-1">
+                    <p className="text-xs text-[#94a3b8] mb-1">URL de imagen</p>
+                    <input value={form.image_url} onChange={e => set('image_url', e.target.value)}
+                      className="input-field text-xs w-full" placeholder="https://..."/>
+                  </div>
+                </div>
+              )}
+
+              {/* Core fields */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="field-label">SKU <span className="text-red-500">*</span></label>
+                  <input value={form.sku} onChange={e => set('sku', e.target.value)}
+                    className="input-field text-sm w-full font-mono" placeholder="BRAND-MODEL-001"/>
+                </div>
+                <div>
+                  <label className="field-label">Marca <span className="text-red-500">*</span></label>
+                  <input value={form.brand} onChange={e => set('brand', e.target.value)}
+                    className="input-field text-sm w-full"/>
+                </div>
+                <div className="col-span-2">
+                  <label className="field-label">Nombre <span className="text-red-500">*</span></label>
+                  <input value={form.name} onChange={e => set('name', e.target.value)}
+                    className="input-field text-sm w-full"/>
+                </div>
+                <div>
+                  <label className="field-label">Categoría</label>
+                  <select value={form.category} onChange={e => set('category', e.target.value)}
+                    className="input-field text-sm w-full">
+                    {CATEGORY_OPTIONS.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="field-label">Stock</label>
+                  <select value={form.stock_status} onChange={e => set('stock_status', e.target.value)}
+                    className="input-field text-sm w-full">
+                    {STOCK_OPTIONS.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="field-label">
+                    Precio base USD (mayorista) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number" min="0" step="0.01"
+                    value={form.base_price}
+                    onChange={e => set('base_price', e.target.value)}
+                    className="input-field text-sm w-full"
+                    placeholder="0.00"
+                  />
+                  <p className="text-[10px] text-[#94a3b8] mt-1">
+                    El precio público se calcula automáticamente con el margen de la categoría.
+                  </p>
+                </div>
+              </div>
+
+              {/* Descripción */}
+              <div>
+                <label className="field-label">Descripción</label>
+                <textarea value={form.description} onChange={e => set('description', e.target.value)}
+                  rows={3} className="input-field text-sm w-full resize-none"/>
+              </div>
+
+              {/* Specs editable */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="field-label mb-0">Especificaciones técnicas</label>
+                  <button
+                    onClick={() => {
+                      const key = `Spec ${Object.keys(form.technical_specs).length + 1}`
+                      setSpec(key, '')
+                    }}
+                    className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline">
+                    + Añadir
+                  </button>
+                </div>
+                <div className="border border-[#e2e8f0] dark:border-white/[0.08] rounded-xl overflow-hidden">
+                  <div className="max-h-48 overflow-y-auto divide-y divide-[#e2e8f0] dark:divide-white/[0.06]">
+                    {Object.entries(form.technical_specs || {}).map(([k, v]) => (
+                      <div key={k} className="flex items-center gap-2 px-3 py-1.5">
+                        <input
+                          defaultValue={k}
+                          onBlur={e => {
+                            const newKey = e.target.value.trim()
+                            if (!newKey || newKey === k) return
+                            setForm(f => {
+                              const s = { ...f.technical_specs }
+                              const val = s[k]
+                              delete s[k]
+                              s[newKey] = val
+                              return { ...f, technical_specs: s }
+                            })
+                          }}
+                          className="w-36 text-xs border-0 bg-transparent text-[#6e6e73] dark:text-white/50
+                                     focus:outline-none focus:text-[#1d1d1f] dark:focus:text-white"
+                        />
+                        <span className="text-[#d1d5db] dark:text-white/20">·</span>
+                        <input value={v} onChange={e => setSpec(k, e.target.value)}
+                          className="flex-1 text-xs border-0 bg-transparent text-[#1d1d1f] dark:text-white
+                                     focus:outline-none"/>
+                        <button onClick={() => removeSpec(k)}
+                          className="text-[#94a3b8] hover:text-red-500 transition-colors shrink-0">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                    {Object.keys(form.technical_specs || {}).length === 0 && (
+                      <p className="px-3 py-3 text-xs text-[#94a3b8]">Sin especificaciones.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => { setStep('input'); setDupError(null); setApiError(null) }}
+                  className="flex-1 py-2.5 rounded-xl border border-[#e2e8f0] dark:border-white/[0.1]
+                             text-sm text-[#6e6e73] dark:text-white/50
+                             hover:border-[#94a3b8] dark:hover:border-white/25 transition-all">
+                  ← Volver
+                </button>
+                <button
+                  onClick={() => handleConfirm(false)}
+                  disabled={
+                    !form.sku || !form.name || !form.brand ||
+                    !form.base_price || Number(form.base_price) <= 0 ||
+                    step === 'saving'
+                  }
+                  className="flex-2 flex-1 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2
+                             bg-[#1e40af] hover:bg-[#1d4ed8] text-white transition-all
+                             disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]">
+                  {step === 'saving' ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                      Guardando…
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
+                      </svg>
+                      Guardar producto
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          )}
+
+        </div>
+      </div>
     </div>
   )
 }

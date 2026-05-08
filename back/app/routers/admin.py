@@ -1,8 +1,11 @@
+import json
+import os
+import shutil
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-import json
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -12,7 +15,10 @@ from app.models.order import Order, OrderItem, OrderStatus
 from app.models.product import Product
 from app.models.user import User
 from app.schemas.order import OrderOut
+from app.schemas.product import IcecatPreviewOut, IcecatImportConfirm
 from app.services.auth_service import require_admin
+from app.services.icecat_service import get_provider, map_to_internal, parse_icecat_url
+from app.services.pricing import calculate_public_price
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
