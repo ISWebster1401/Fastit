@@ -34,8 +34,9 @@ class Settings:
     FLOW_API_KEY: str = "FLOW_API_KEY_AQUI"
     FLOW_SECRET: str = "FLOW_SECRET_AQUI"
     FLOW_API_URL: str = "https://sandbox.flow.cl/api"  # prod: https://www.flow.cl/api
-    FLOW_CLP_RATE: float = 970.0  # USD → CLP para el monto Flow
-    # SendGrid
+    FLOW_CLP_RATE: float = 970.0  # USD → CLP (Flow; respaldo si se reactiva la pasarela)
+    # SendGrid — correos de verificación de cuenta y restablecimiento de contraseña.
+    # Render: definir SENDGRID_API_KEY y SENDGRID_FROM_EMAIL (remitente verificado en SendGrid).
     SENDGRID_API_KEY: str = ""
     SENDGRID_FROM_EMAIL: str = "noreply@fastit.cl"
     CATEGORY_MARGINS: Dict[str, float] = field(

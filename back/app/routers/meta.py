@@ -11,7 +11,9 @@ router = APIRouter(prefix="/api", tags=["Meta"])
 @router.get("/exchange-rate")
 def exchange_rate():
     """
-    Tipo de cambio USD → CLP usando dólar Banco Central + recargo fijo de 5 CLP.
+    USD → CLP: valor referencia (BCCh vía mindicador.cl) + 5 CLP.
+    La tasa cacheada se renueva en el próximo corte diario 18:30 hora Chile
+    (campo `next_refresh_at` en la respuesta).
     """
     rate = get_usd_to_clp()
     return rate.to_dict()

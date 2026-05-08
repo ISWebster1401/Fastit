@@ -88,6 +88,14 @@ class TestLogin:
         assert res.status_code == 200
         assert res.json()["user"]["is_admin"] is True
 
+    def test_login_email_case_insensitive(self, client, admin_user):
+        res = client.post("/api/auth/login", json={
+            "email": admin_user.email.upper(),
+            "password": "admin1234",
+        })
+        assert res.status_code == 200
+        assert res.json()["user"]["email"] == admin_user.email.lower()
+
     def test_login_short_password_works(self, client):
         # Registramos con password corto y luego logueamos
         client.post("/api/auth/register", json={

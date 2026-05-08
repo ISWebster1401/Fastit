@@ -2,6 +2,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -20,6 +21,10 @@ from app.services.email_service import (
 PASSWORD_RESET_TTL_HOURS = 1
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
+
+
+def _normalize_email(email: str) -> str:
+    return (email or "").strip().lower()
 
 
 class LoginRequest(BaseModel):
@@ -56,9 +61,17 @@ class TokenResponse(BaseModel):
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email, User.is_active == True).first()
+    email = _normalize_email(payload.email)
+    user = db.query(User).filter(
+        func.lower(User.email) == email,
+        User.is_active == True,
+    ).first()
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+    if user.email != email:
+        user.email = email
+        db.commit()
+        db.refresh(user)
     return TokenResponse(
         access_token=create_access_token(user.id),
         user=UserOut.model_validate(user),
@@ -71,12 +84,13 @@ def register_user(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
-    if db.query(User).filter(User.email == payload.email).first():
+    email = _normalize_email(payload.email)
+    if db.query(User).filter(func.lower(User.email) == email).first():
         raise HTTPException(status_code=409, detail="El email ya está registrado")
 
     token = secrets.token_urlsafe(32)
     user = User(
-        email              = payload.email,
+        email              = email,
         hashed_password    = hash_password(payload.password),
         is_company         = payload.is_company,
         rut                = payload.rut,
@@ -137,7 +151,7 @@ def forgot_password(
     if not email:
         return generic_response
 
-    user = db.query(User).filter(User.email == email, User.is_active == True).first()
+    user = db.query(User).filter(func.lower(User.email) == email, User.is_active == True).first()
     if not user:
         return generic_response
 

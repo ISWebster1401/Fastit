@@ -9,8 +9,17 @@ logger = logging.getLogger(__name__)
 
 
 def _send(to_email: str, subject: str, html: str) -> bool:
+    """
+    Envío vía SendGrid. Requiere SENDGRID_API_KEY y SENDGRID_FROM_EMAIL en el entorno
+    (p. ej. variables en Render). Verificación de correo y recuperación de contraseña usan este método.
+    """
     if not settings.SENDGRID_API_KEY:
-        logger.warning("[EMAIL — sin SendGrid] Para: %s | Asunto: %s", to_email, subject)
+        logger.warning(
+            "[EMAIL — sin SendGrid] Para: %s | Asunto: %s "
+            "(configura SENDGRID_API_KEY en Render para envío real)",
+            to_email,
+            subject,
+        )
         return False
     try:
         from sendgrid import SendGridAPIClient
@@ -22,6 +31,7 @@ def _send(to_email: str, subject: str, html: str) -> bool:
             html_content=html,
         )
         SendGridAPIClient(settings.SENDGRID_API_KEY).send(msg)
+        logger.info("[SendGrid] Correo enviado OK → %s | %s", to_email, subject)
         return True
     except Exception:
         logger.exception("Error enviando email a %s", to_email)
@@ -101,7 +111,7 @@ def send_welcome_email(to_email: str, name: str) -> None:
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;">
       <h2 style="color:#0f172a;">¡Bienvenido a Fast-IT, {name}!</h2>
-      <p style="color:#334155;">Tu cuenta está activa. Ahora puedes acceder al catálogo de hardware crítico B2B de NADILOP.</p>
+      <p style="color:#334155;">Tu correo ya está verificado y tu cuenta está activa. Puedes acceder al catálogo de hardware crítico, armar pedidos y usar el asesor técnico.</p>
       <p style="color:#64748b;font-size:13px;">Fast-IT</p>
     </div>
     """

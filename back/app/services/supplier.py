@@ -115,7 +115,7 @@ class MockSupplierProvider(SupplierProvider):
         ),
         SupplierProduct(
             supplier_sku="MAY-CISCO-9300-48P",
-            name="Cisco Catalyst 9300 48-Port PoE+",
+            name="Cisco Catalyst 9300 48 puertos PoE+",
             brand="Cisco",
             wholesale_price_usd=3850.00,
             stock=12,

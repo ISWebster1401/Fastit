@@ -234,6 +234,57 @@ def _suggest_sku(brand: str, product_id: str) -> str:
     return f"{safe_brand}-IC{product_id}" if safe_brand else f"IC-{product_id}"
 
 
+# Etiquetas típicas en inglés (Icecat LIVE) → español para el catálogo Fast-IT
+_SPEC_LABEL_EN_TO_ES: dict[str, str] = {
+    "Form Factor": "Factor de forma",
+    "Processor family": "Familia del procesador",
+    "Processor cores": "Núcleos del procesador",
+    "Processor frequency": "Frecuencia del procesador",
+    "Processor": "Procesador",
+    "Max RAM": "RAM máxima",
+    "Storage Bays": "Bahías de almacenamiento",
+    "RAID controller": "Controlador RAID",
+    "Network": "Red",
+    "Power supply": "Fuente de alimentación",
+    "Power supply type": "Tipo de fuente",
+    "Ports": "Puertos",
+    "PoE": "PoE",
+    "PoE Budget": "Presupuesto PoE",
+    "Switching capacity": "Capacidad de conmutación",
+    "Layer": "Capa",
+    "Uplinks": "Enlaces ascendentes",
+    "Drive Bays": "Bahías de discos",
+    "Interface": "Interfaz",
+    "Type": "Tipo",
+    "Cache": "Caché",
+    "Controllers": "Controladores",
+    "GPU Slots": "Ranuras GPU",
+    "Storage": "Almacenamiento",
+    "Max Capacity": "Capacidad máxima",
+    "Max Raw Capacity": "Capacidad bruta máxima",
+    "Latency": "Latencia",
+    "Protocol": "Protocolo",
+    "Software": "Software",
+    "Features": "Características",
+}
+
+
+def _localize_technical_specs(specs: dict[str, str]) -> dict[str, str]:
+    """Convierte claves (y algunos valores) típicos de Icecat al español."""
+    out: dict[str, str] = {}
+    for k, v in specs.items():
+        nk = _SPEC_LABEL_EN_TO_ES.get(k.strip(), k)
+        nv = v
+        if isinstance(v, str):
+            t = v.strip()
+            if t in ("Yes", "yes"):
+                nv = "Sí"
+            elif t in ("No", "no"):
+                nv = "No"
+        out[nk] = nv
+    return out
+
+
 # ─── Mapping ──────────────────────────────────────────────────────────────────
 
 def map_to_internal(raw: RawIcecatProduct, source_url: str) -> ProductImportData:
@@ -245,7 +296,7 @@ def map_to_internal(raw: RawIcecatProduct, source_url: str) -> ProductImportData
         brand             = raw.brand,
         category          = _normalise_category(raw.category_name),
         description       = desc,
-        technical_specs   = raw.specs,
+        technical_specs   = _localize_technical_specs(raw.specs),
         image_url         = raw.image_url,
         source_product_id = raw.product_id,
         source_url        = source_url,
@@ -391,22 +442,22 @@ class MockIcecatProvider(IcecatProvider):
             "Category": {"ID": 1, "Name": "Servers"},
             "FeaturesGroups": [
                 {"ID": 1, "Name": "General", "Features": [
-                    {"Feature": {"Name": "Form Factor"}, "LocalValue": {"_": "2U Rack"}, "Measure": {}},
-                    {"Feature": {"Name": "Processor family"}, "LocalValue": {"_": "Intel Xeon Silver"}, "Measure": {}},
-                    {"Feature": {"Name": "Processor cores"}, "LocalValue": {"_": "16"}, "Measure": {"Signs": {"Sign": [{"_": "cores"}]}}},
-                    {"Feature": {"Name": "Processor frequency"}, "LocalValue": {"_": "2.4"}, "Measure": {"Signs": {"Sign": [{"_": "GHz"}]}}},
-                    {"Feature": {"Name": "Max RAM"}, "LocalValue": {"_": "3072"}, "Measure": {"Signs": {"Sign": [{"_": "GB"}]}}},
+                    {"Feature": {"Name": "Factor de forma"}, "LocalValue": {"_": "Rack 2U"}, "Measure": {}},
+                    {"Feature": {"Name": "Familia del procesador"}, "LocalValue": {"_": "Intel Xeon Silver"}, "Measure": {}},
+                    {"Feature": {"Name": "Núcleos del procesador"}, "LocalValue": {"_": "16"}, "Measure": {"Signs": {"Sign": [{"_": "núcleos"}]}}},
+                    {"Feature": {"Name": "Frecuencia del procesador"}, "LocalValue": {"_": "2,4"}, "Measure": {"Signs": {"Sign": [{"_": "GHz"}]}}},
+                    {"Feature": {"Name": "RAM máxima"}, "LocalValue": {"_": "3072"}, "Measure": {"Signs": {"Sign": [{"_": "GB"}]}}},
                 ]},
-                {"ID": 2, "Name": "Storage", "Features": [
-                    {"Feature": {"Name": "Storage Bays"}, "LocalValue": {"_": "8x SFF SAS/SATA/NVMe"}, "Measure": {}},
-                    {"Feature": {"Name": "RAID controller"}, "LocalValue": {"_": "HPE Smart Array P408i-a SR"}, "Measure": {}},
+                {"ID": 2, "Name": "Almacenamiento", "Features": [
+                    {"Feature": {"Name": "Bahías de almacenamiento"}, "LocalValue": {"_": "8× SFF SAS/SATA/NVMe"}, "Measure": {}},
+                    {"Feature": {"Name": "Controlador RAID"}, "LocalValue": {"_": "HPE Smart Array P408i-a SR"}, "Measure": {}},
                 ]},
-                {"ID": 3, "Name": "Networking", "Features": [
-                    {"Feature": {"Name": "Network"}, "LocalValue": {"_": "4x 1GbE FlexibleLOM"}, "Measure": {}},
+                {"ID": 3, "Name": "Red", "Features": [
+                    {"Feature": {"Name": "Red"}, "LocalValue": {"_": "4× 1 GbE FlexibleLOM"}, "Measure": {}},
                 ]},
-                {"ID": 4, "Name": "Power", "Features": [
-                    {"Feature": {"Name": "Power supply"}, "LocalValue": {"_": "800"}, "Measure": {"Signs": {"Sign": [{"_": "W"}]}}},
-                    {"Feature": {"Name": "Power supply type"}, "LocalValue": {"_": "Hot-plug Platinum"}, "Measure": {}},
+                {"ID": 4, "Name": "Energía", "Features": [
+                    {"Feature": {"Name": "Fuente de alimentación"}, "LocalValue": {"_": "800"}, "Measure": {"Signs": {"Sign": [{"_": "W"}]}}},
+                    {"Feature": {"Name": "Tipo de fuente"}, "LocalValue": {"_": "Hot-plug Platinum"}, "Measure": {}},
                 ]},
             ],
         },
@@ -423,12 +474,12 @@ class MockIcecatProvider(IcecatProvider):
             "Category": {"ID": 2, "Name": "Network switches"},
             "FeaturesGroups": [
                 {"ID": 1, "Name": "General", "Features": [
-                    {"Feature": {"Name": "Ports"}, "LocalValue": {"_": "48"}, "Measure": {"Signs": {"Sign": [{"_": "ports"}]}}},
-                    {"Feature": {"Name": "PoE"}, "LocalValue": {"_": "Yes"}, "Measure": {}},
-                    {"Feature": {"Name": "PoE Budget"}, "LocalValue": {"_": "740"}, "Measure": {"Signs": {"Sign": [{"_": "W"}]}}},
-                    {"Feature": {"Name": "Switching capacity"}, "LocalValue": {"_": "208"}, "Measure": {"Signs": {"Sign": [{"_": "Gbps"}]}}},
-                    {"Feature": {"Name": "Layer"}, "LocalValue": {"_": "L3"}, "Measure": {}},
-                    {"Feature": {"Name": "Uplinks"}, "LocalValue": {"_": "4x 10GbE SFP+"}, "Measure": {}},
+                    {"Feature": {"Name": "Puertos"}, "LocalValue": {"_": "48"}, "Measure": {"Signs": {"Sign": [{"_": "puertos"}]}}},
+                    {"Feature": {"Name": "PoE"}, "LocalValue": {"_": "Sí"}, "Measure": {}},
+                    {"Feature": {"Name": "Presupuesto PoE"}, "LocalValue": {"_": "740"}, "Measure": {"Signs": {"Sign": [{"_": "W"}]}}},
+                    {"Feature": {"Name": "Capacidad de conmutación"}, "LocalValue": {"_": "208"}, "Measure": {"Signs": {"Sign": [{"_": "Gb/s"}]}}},
+                    {"Feature": {"Name": "Capa"}, "LocalValue": {"_": "L3"}, "Measure": {}},
+                    {"Feature": {"Name": "Enlaces ascendentes"}, "LocalValue": {"_": "4× 10 GbE SFP+"}, "Measure": {}},
                 ]},
             ],
         },
@@ -447,8 +498,8 @@ class MockIcecatProvider(IcecatProvider):
         "Category": {"ID": 1, "Name": "Servers"},
         "FeaturesGroups": [
             {"ID": 1, "Name": "General", "Features": [
-                {"Feature": {"Name": "Source"}, "LocalValue": {"_": "Mock provider"}, "Measure": {}},
-                {"Feature": {"Name": "Note"}, "LocalValue": {"_": "Configure ICECAT_USERNAME para datos reales"}, "Measure": {}},
+                {"Feature": {"Name": "Origen"}, "LocalValue": {"_": "Proveedor simulado (mock)"}, "Measure": {}},
+                {"Feature": {"Name": "Nota"}, "LocalValue": {"_": "Configura ICECAT_USERNAME para datos reales"}, "Measure": {}},
             ]},
         ],
     }

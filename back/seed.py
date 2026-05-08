@@ -26,12 +26,12 @@ products = [
         "stock_status": StockStatus.available,
         "base_price": 5200.00,
         "technical_specs": {
-            "Form Factor": "2U Rack",
-            "Processor": "Intel Xeon Silver 4314 2.4GHz 16-core",
-            "Max RAM": "3TB DDR4",
-            "Storage Bays": "8x SFF SAS/SATA/NVMe",
-            "Power Supply": "800W Flex Slot Platinum",
-            "Network": "4x 1GbE",
+            "Factor de forma": "Rack 2U",
+            "Procesador": "Intel Xeon Silver 4314 2,4 GHz 16 núcleos",
+            "RAM máxima": "3 TB DDR4",
+            "Bahías de almacenamiento": "8× SFF SAS/SATA/NVMe",
+            "Fuente de alimentación": "800 W Flex Slot Platinum",
+            "Red": "4× 1 GbE",
         },
     },
     {
@@ -43,29 +43,29 @@ products = [
         "stock_status": StockStatus.available,
         "base_price": 3800.00,
         "technical_specs": {
-            "Type": "Hybrid SAN/DAS",
-            "Drive Bays": "24 LFF + 2 SFF",
-            "Interface": "SAS 12Gb/s",
-            "Max Raw Capacity": "336TB",
-            "Controllers": "Dual Active-Active",
-            "Cache": "4GB mirrored",
+            "Tipo": "SAN/DAS híbrido",
+            "Bahías de discos": "24 LFF + 2 SFF",
+            "Interfaz": "SAS 12 Gb/s",
+            "Capacidad bruta máxima": "336 TB",
+            "Controladores": "Doble activo-activo",
+            "Caché": "4 GB en espejo",
         },
     },
     {
         "sku": "CISCO-C9300-48P-E",
-        "name": "Cisco Catalyst 9300 48-Port PoE+",
+        "name": "Cisco Catalyst 9300 48 puertos PoE+",
         "description": "Switch gestionable enterprise con soporte SD-Access.",
         "brand": "Cisco",
         "category": "networking",
         "stock_status": StockStatus.available,
         "base_price": 4100.00,
         "technical_specs": {
-            "Ports": "48x 1GbE PoE+",
-            "Uplinks": "4x 10GbE SFP+",
-            "PoE Budget": "740W",
-            "Switching Capacity": "208 Gbps",
-            "Layer": "L3",
-            "Features": "SD-Access, MACSEC, DNA-ready",
+            "Puertos": "48× 1 GbE PoE+",
+            "Enlaces ascendentes": "4× 10 GbE SFP+",
+            "Presupuesto PoE": "740 W",
+            "Capacidad de conmutación": "208 Gb/s",
+            "Capa": "L3",
+            "Características": "SD-Access, MACSEC, listo para DNA",
         },
     },
     {
@@ -77,12 +77,12 @@ products = [
         "stock_status": StockStatus.on_request,
         "base_price": 14500.00,
         "technical_specs": {
-            "Form Factor": "2U Rack",
-            "Processor": "2x Intel Xeon Gold 6330 28-core",
-            "Max RAM": "4TB DDR4 3200MT/s",
-            "GPU Slots": "Up to 8x PCIe Gen4",
-            "Storage": "12x 2.5\" NVMe",
-            "Network": "2x 25GbE + 2x 1GbE iDRAC",
+            "Factor de forma": "Rack 2U",
+            "Procesador": "2× Intel Xeon Gold 6330 28 núcleos",
+            "RAM máxima": "4 TB DDR4 3200 MT/s",
+            "Ranuras GPU": "Hasta 8× PCIe Gen4",
+            "Almacenamiento": "12× 2,5\" NVMe",
+            "Red": "2× 25 GbE + 2× 1 GbE iDRAC",
         },
     },
     {
@@ -94,12 +94,12 @@ products = [
         "stock_status": StockStatus.low_stock,
         "base_price": 18000.00,
         "technical_specs": {
-            "Type": "All-Flash NVMe",
-            "Max Capacity": "576TB raw",
-            "Latency": "<200µs",
-            "Protocol": "NFS, CIFS, iSCSI, FC, NVMe/FC",
-            "Controllers": "HA Pair",
-            "Software": "ONTAP 9.x included",
+            "Tipo": "All-flash NVMe",
+            "Capacidad máxima": "576 TB en bruto",
+            "Latencia": "< 200 µs",
+            "Protocolo": "NFS, CIFS, iSCSI, FC, NVMe/FC",
+            "Controladores": "Par HA",
+            "Software": "ONTAP 9.x incluido",
         },
     },
 ]
@@ -108,14 +108,26 @@ for p in products:
     p["public_price"] = calculate_public_price(p["base_price"], p["category"])
     db.add(Product(**p))
 
-# Admin principal — único con acceso al panel
+# Admin principal
 admin_user = User(
     email             = "seb@fastit.cl",
     hashed_password   = hash_password("1234"),
     is_admin          = True,
     is_company        = False,
+    is_active         = True,
+    email_verified    = True,
 )
 db.add(admin_user)
+
+nahum_admin = User(
+    email             = "nahumdiaz@fastit.cl",
+    hashed_password   = hash_password("1234"),
+    is_admin          = True,
+    is_company        = False,
+    is_active         = True,
+    email_verified    = True,
+)
+db.add(nahum_admin)
 
 # Usuario demo para pruebas
 demo_user = User(
@@ -125,10 +137,14 @@ demo_user = User(
     rut               = "76.123.456-7",
     business_name     = "Empresa Demo SpA",
     business_activity = "Servicios de tecnología",
+    is_active         = True,
+    email_verified    = True,
 )
 db.add(demo_user)
 
 db.commit()
 print(f"Seed completado: {len(products)} productos")
-print(f"  Admin: seb@fastit.cl / 1234")
-print(f"  Demo:  demo@empresa.cl / demo1234")
+print("  Admin: seb@fastit.cl / 1234")
+print("  Admin: nahumdiaz@fastit.cl / 1234")
+print("  Demo:  demo@empresa.cl / demo1234")
+db.close()

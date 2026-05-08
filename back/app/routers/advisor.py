@@ -273,19 +273,20 @@ REGLAS FINALES:
 # Specs clave usadas para validar compatibilidad (form factor, fuente, layer, RAM, etc.)
 _KEY_SPEC_FIELDS = (
     "Form Factor", "Factor de forma",
-    "Power Supply", "Power supply", "Power supply type", "Fuente",
+    "Power Supply", "Power supply", "Power supply type", "Fuente", "Fuente de alimentación",
     "Layer", "Capa",
     "Ports", "Puertos",
-    "PoE", "PoE Budget",
-    "Max RAM", "Memoria RAM", "Memory",
-    "GPU Slots", "GPU",
+    "PoE", "PoE Budget", "Presupuesto PoE",
+    "Max RAM", "Memoria RAM", "Memory", "RAM máxima",
+    "GPU Slots", "GPU", "Ranuras GPU",
     "Processor", "Procesador",
-    "Storage Bays",
-    "Uplinks",
-    "Switching capacity", "Switching Capacity",
+    "Storage Bays", "Bahías de almacenamiento",
+    "Uplinks", "Enlaces ascendentes",
+    "Switching capacity", "Switching Capacity", "Capacidad de conmutación",
     "Interface", "Interfaz",
-    "Protocol",
-    "Type",
+    "Protocol", "Protocolo",
+    "Type", "Tipo",
+    "Almacenamiento", "Red", "Controladores", "Bahías de discos",
 )
 
 
