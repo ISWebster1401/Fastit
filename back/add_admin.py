@@ -11,8 +11,8 @@ Base.metadata.create_all(bind=engine)
 db = SessionLocal()
 
 ADMINS = [
-    {"email": "seb@fastit.cl",         "password": "1234"},
-    {"email": "NahumDiaz@fastit.cl",   "password": "1234"},
+    {"email": "seb@fastit.cl",       "password": "1234"},
+    {"email": "NahumDiaz@fastit.cl", "password": "1234"},
 ]
 
 for a in ADMINS:
@@ -20,6 +20,8 @@ for a in ADMINS:
     if user:
         user.hashed_password = hash_password(a["password"])
         user.is_admin = True
+        user.is_active = True
+        user.email_verified = True
         print(f"  Actualizado: {a['email']}")
     else:
         db.add(User(
@@ -27,6 +29,8 @@ for a in ADMINS:
             hashed_password=hash_password(a["password"]),
             is_admin=True,
             is_company=False,
+            is_active=True,
+            email_verified=True,
         ))
         print(f"  Creado: {a['email']}")
 
