@@ -12,7 +12,7 @@ services:
     startCommand: cd back && bash startup.sh
     envVars:
       - key: SECRET_KEY
-        generateValue: true
+        sync: false
       - key: DEBUG
         value: "false"
       - key: DATABASE_URL
