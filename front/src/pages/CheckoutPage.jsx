@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useCartStore, useAuthStore } from '../store/cartStore'
-import { checkout, createPayment, createFlowPayment } from '../api/client'
-import Price from '../components/ui/Price'
-import { useFormatPrice } from '../store/currencyStore'
+import { checkout, createPayment, createFlowPayment, getShippingCommunes, getShippingQuote } from '../api/client'
+
+const fmtCLP = (n) => `$${Math.round(n).toLocaleString('es-CL')} CLP`
 
 function redirectToTransbank(url, token) {
   const form  = document.createElement('form')
@@ -25,7 +25,14 @@ export default function CheckoutPage() {
   const removeItem  = useCartStore(s => s.removeItem)
   const user        = useAuthStore(s => s.user)
   const navigate    = useNavigate()
-  const formatPrice = useFormatPrice()
+
+  // Tipo de cambio para mostrar en CLP
+  const [exchangeRate, setExchangeRate] = useState(970)
+  useEffect(() => {
+    fetch('/api/exchange-rate').then(r => r.json()).then(d => {
+      if (d?.rate > 0) setExchangeRate(d.rate)
+    }).catch(() => {})
+  }, [])
 
   const [docType, setDocType] = useState('Boleta')
   const [form, setForm]       = useState({
@@ -35,10 +42,45 @@ export default function CheckoutPage() {
   const [loading,   setLoading]   = useState(false)
   const [step,      setStep]      = useState('cart')
   const [error,     setError]     = useState(null)
-  // Solo Transbank (sandbox) por ahora — Flow queda dormido pero funcional
-  const pasarela = 'transbank'
 
-  const total = items.reduce((sum, i) => sum + i.public_price * i.quantity, 0)
+  // Envío
+  const [communes,        setCommunes]        = useState([])
+  const [communeSearch,   setCommuneSearch]   = useState('')
+  const [selectedCommune, setSelectedCommune] = useState('')
+  const [shippingAddress, setShippingAddress] = useState('')
+  const [shippingQuote,   setShippingQuote]   = useState(null)  // { price_clp, service_name, days_estimate }
+  const [quotingShipping, setQuotingShipping] = useState(false)
+  const [shippingError,   setShippingError]   = useState(null)
+
+  useEffect(() => {
+    getShippingCommunes().then(setCommunes).catch(() => {})
+  }, [])
+
+  const filteredCommunes = communes.filter(c =>
+    c.commune.toLowerCase().includes(communeSearch.toLowerCase())
+  )
+
+  const handleQuoteShipping = async () => {
+    if (!selectedCommune) return
+    setQuotingShipping(true)
+    setShippingError(null)
+    try {
+      const totalClp  = items.reduce((s, i) => s + i.public_price * i.quantity, 0)
+      const productIds = items.map(i => i.id)
+      const q = await getShippingQuote(selectedCommune, productIds, Math.round(totalClp))
+      setShippingQuote(q)
+    } catch {
+      setShippingError('No se pudo cotizar el envío. Intenta de nuevo.')
+    } finally {
+      setQuotingShipping(false)
+    }
+  }
+
+  const pasarela     = 'transbank'
+  const subtotalUSD  = items.reduce((sum, i) => sum + i.public_price * i.quantity, 0)
+  const subtotalCLP  = Math.round(subtotalUSD * exchangeRate)
+  const shippingCLP  = shippingQuote?.price_clp || 0
+  const totalCLP     = subtotalCLP + shippingCLP
 
   const handleField = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
@@ -63,6 +105,10 @@ export default function CheckoutPage() {
               boleta_rut: form.boleta_rut,
               boleta_email: form.boleta_email,
             }),
+        shipping_address: shippingAddress || null,
+        shipping_commune: selectedCommune || null,
+        shipping_region:  shippingQuote?.region || null,
+        shipping_cost:    shippingQuote?.price_clp || 0,
       }
       const order = await checkout(orderPayload)
       clearCart()
@@ -154,8 +200,8 @@ export default function CheckoutPage() {
                       +
                     </button>
                   </div>
-                  <p className="text-sm font-semibold text-[#1d1d1f] dark:text-white w-28 text-right">
-                    {formatPrice(item.public_price * item.quantity)}
+                  <p className="text-sm font-semibold text-[#1d1d1f] dark:text-white w-36 text-right">
+                    {fmtCLP(item.public_price * item.quantity * exchangeRate)}
                   </p>
                   <button type="button" onClick={() => removeItem(item.id)}
                     className="text-[#86868b] dark:text-white/25 hover:text-red-500 dark:hover:text-red-400
@@ -232,6 +278,91 @@ export default function CheckoutPage() {
             )}
           </div>
 
+          {/* Dirección de envío */}
+          <div className="card p-5 space-y-4">
+            <h2 className="text-xs font-semibold text-[#6e6e73] dark:text-white/40 uppercase tracking-widest">
+              Dirección de entrega
+            </h2>
+
+            <div>
+              <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">
+                Dirección (calle y número) *
+              </label>
+              <input
+                value={shippingAddress}
+                onChange={e => setShippingAddress(e.target.value)}
+                placeholder="Ej: Av. Providencia 1234, Dpto 502"
+                required
+                className="input-field"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">
+                Comuna *
+              </label>
+              <input
+                value={communeSearch || selectedCommune}
+                onChange={e => { setCommuneSearch(e.target.value); setSelectedCommune(''); setShippingQuote(null) }}
+                placeholder="Buscar comuna..."
+                className="input-field"
+              />
+              {communeSearch && !selectedCommune && filteredCommunes.length > 0 && (
+                <ul className="border border-[#d2d2d7] dark:border-white/[0.1] rounded-xl mt-1 max-h-44 overflow-y-auto bg-white dark:bg-[#1c1c1e] shadow-lg z-10 relative">
+                  {filteredCommunes.slice(0, 12).map(c => (
+                    <li
+                      key={c.commune}
+                      onClick={() => { setSelectedCommune(c.commune); setCommuneSearch('') }}
+                      className="px-3 py-2 text-sm cursor-pointer hover:bg-[#f5f5f7] dark:hover:bg-white/[0.05]
+                                 text-[#1d1d1f] dark:text-white flex justify-between"
+                    >
+                      <span>{c.commune}</span>
+                      <span className="text-xs text-[#86868b] dark:text-white/30">{c.region}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleQuoteShipping}
+              disabled={!selectedCommune || quotingShipping}
+              className="w-full py-2.5 rounded-xl border border-[#1e40af] text-[#1e40af] dark:text-blue-400
+                         dark:border-blue-500 text-sm font-medium hover:bg-[#eff6ff] dark:hover:bg-blue-500/10
+                         transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {quotingShipping ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  Cotizando…
+                </>
+              ) : 'Calcular costo de envío'}
+            </button>
+
+            {shippingError && (
+              <p className="text-xs text-red-600 dark:text-red-400">{shippingError}</p>
+            )}
+
+            {shippingQuote && (
+              <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-500/10
+                              border border-emerald-200 dark:border-emerald-500/20 rounded-xl px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                    {shippingQuote.service_name}
+                  </p>
+                  <p className="text-xs text-[#6e6e73] dark:text-white/40">{shippingQuote.days_estimate}</p>
+                </div>
+                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                  ${shippingQuote.price_clp.toLocaleString('es-CL')} CLP
+                </p>
+              </div>
+            )}
+          </div>
+
           {error && (
             <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20
                             text-red-700 dark:text-red-400 text-sm rounded-xl p-3">
@@ -251,16 +382,32 @@ export default function CheckoutPage() {
               {items.map(i => (
                 <div key={i.id} className="flex justify-between text-[#6e6e73] dark:text-white/50">
                   <span className="truncate max-w-[140px]">{i.name} ×{i.quantity}</span>
-                  <span>{formatPrice(i.public_price * i.quantity)}</span>
+                  <span>{fmtCLP(i.public_price * i.quantity * exchangeRate)}</span>
                 </div>
               ))}
             </div>
 
             <hr className="border-[#d2d2d7] dark:border-white/[0.07]" />
 
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between text-[#6e6e73] dark:text-white/50">
+                <span>Subtotal</span>
+                <span>{fmtCLP(subtotalCLP)}</span>
+              </div>
+              <div className="flex justify-between text-[#6e6e73] dark:text-white/50">
+                <span>Envío Chilexpress</span>
+                {shippingQuote
+                  ? <span className="text-emerald-600 dark:text-emerald-400">+{fmtCLP(shippingCLP)}</span>
+                  : <span className="italic text-xs">Por calcular</span>
+                }
+              </div>
+            </div>
+
+            <hr className="border-[#d2d2d7] dark:border-white/[0.07]" />
+
             <div className="flex justify-between font-semibold text-[#1d1d1f] dark:text-white">
-              <span>Total neto</span>
-              <Price amount={total} />
+              <span>Total</span>
+              <span>{fmtCLP(totalCLP)}</span>
             </div>
 
             {!user && (

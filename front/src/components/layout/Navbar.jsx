@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useCartStore, useAuthStore } from '../../store/cartStore'
 import { useTheme } from '../../hooks/useTheme'
-import CurrencySelector from './CurrencySelector'
 import { resendVerification } from '../../api/client'
 
 export default function Navbar() {
@@ -53,14 +52,12 @@ export default function Navbar() {
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
 
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-3 group">
-          <div className="w-8 h-8 bg-[#1e40af] dark:bg-blue-500 rounded-xl flex items-center justify-center font-bold text-white text-sm transition-all duration-300 group-hover:bg-[#1d4ed8] dark:group-hover:bg-blue-400">
-            F
-          </div>
-          <div className="leading-none">
-            <span className="block font-semibold text-[#0f172a] dark:text-white text-base tracking-tight">Fast-IT</span>
-            <span className="block text-[#94a3b8] dark:text-white/25 text-[10px] tracking-widest uppercase">Hardware crítico</span>
-          </div>
+        <Link to="/" className="flex items-center group">
+          <img
+            src="/logo.png"
+            alt="Fast-IT"
+            className="h-9 w-auto object-contain transition-opacity duration-200 group-hover:opacity-80"
+          />
         </Link>
 
         {/* Nav links */}
@@ -73,9 +70,6 @@ export default function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
-
-          {/* Selector de moneda */}
-          <CurrencySelector />
 
           {/* Toggle tema */}
           <button

@@ -81,6 +81,14 @@ def _apply_schema_migrations():
         "ALTER TABLE orders   ADD COLUMN boleta_rut          VARCHAR(20)",
         "ALTER TABLE orders   ADD COLUMN boleta_email        VARCHAR(255)",
         "ALTER TABLE orders   ADD COLUMN exchange_rate_used  NUMERIC(10,2)",
+        "ALTER TABLE orders   ADD COLUMN shipping_address    VARCHAR(255)",
+        "ALTER TABLE orders   ADD COLUMN shipping_commune    VARCHAR(100)",
+        "ALTER TABLE orders   ADD COLUMN shipping_region     VARCHAR(100)",
+        "ALTER TABLE orders   ADD COLUMN shipping_cost       NUMERIC(10,2) DEFAULT 0",
+        "ALTER TABLE products ADD COLUMN weight_kg           NUMERIC(8,2)",
+        "ALTER TABLE products ADD COLUMN height_cm           NUMERIC(8,2)",
+        "ALTER TABLE products ADD COLUMN width_cm            NUMERIC(8,2)",
+        "ALTER TABLE products ADD COLUMN length_cm           NUMERIC(8,2)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

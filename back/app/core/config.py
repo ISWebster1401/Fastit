@@ -39,6 +39,8 @@ class Settings:
     # Render: definir SENDGRID_API_KEY y SENDGRID_FROM_EMAIL (remitente verificado en SendGrid).
     SENDGRID_API_KEY: str = ""
     SENDGRID_FROM_EMAIL: str = "noreply@fastit.cl"
+    CHILEXPRESS_API_KEY: str = ""
+    CHILEXPRESS_BASE_URL: str = "https://testservices.wschilexpress.com"
     CATEGORY_MARGINS: Dict[str, float] = field(
         default_factory=lambda: {
             "storage": 0.22,
@@ -79,6 +81,8 @@ def _build_settings() -> Settings:
         FLOW_CLP_RATE=float(os.getenv("FLOW_CLP_RATE", "970")),
         SENDGRID_API_KEY=os.getenv("SENDGRID_API_KEY", ""),
         SENDGRID_FROM_EMAIL=os.getenv("SENDGRID_FROM_EMAIL", "noreply@fastit.cl"),
+        CHILEXPRESS_API_KEY=os.getenv("CHILEXPRESS_API_KEY", ""),
+        CHILEXPRESS_BASE_URL=os.getenv("CHILEXPRESS_BASE_URL", "https://testservices.wschilexpress.com"),
     )
 
 

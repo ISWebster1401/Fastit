@@ -5,7 +5,7 @@ import WorkstationExplorer from '../components/product/WorkstationExplorer'
 import ScrollAssembly    from '../components/product/ScrollAssembly'
 import { getProduct }    from '../api/client'
 import { useCartStore }  from '../store/cartStore'
-import Price             from '../components/ui/Price'
+import { formatUSD }    from '../store/currencyStore'
 
 const STOCK_LABELS = {
   available:    'Disponible',
@@ -105,7 +105,7 @@ export default function ProductDetailPage() {
             <div className="card p-5 space-y-4">
               <div>
                 <p className="text-xs text-[#6e6e73] dark:text-white/40 mb-1">Precio neto</p>
-                <Price amount={product.public_price} className="text-3xl font-semibold text-[#1d1d1f] dark:text-white" />
+                <span className="text-3xl font-semibold text-[#1d1d1f] dark:text-white">{formatUSD(product.public_price)}</span>
                 <p className="text-xs text-[#6e6e73] dark:text-white/40 mt-1">+ IVA según tipo de documento</p>
               </div>
               <hr className="border-[#d2d2d7] dark:border-white/[0.07]" />

@@ -12,6 +12,11 @@ const FALLBACK_RATES = { USD: 1, CLP: 970 }
 
 export const CURRENCY_LIST = ['USD', 'CLP']
 
+// Formateador fijo en USD — para catálogo/productos (nunca cambia por el selector)
+export function formatUSD(amount) {
+  return `US$${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
 export const useCurrencyStore = create(
   persist(
     (set, get) => ({

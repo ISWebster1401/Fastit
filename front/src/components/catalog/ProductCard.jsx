@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useCartStore } from '../../store/cartStore'
-import Price from '../ui/Price'
+import { formatUSD } from '../../store/currencyStore'
 
 const STOCK_LABELS = {
   available:    'Disponible',
@@ -111,7 +111,7 @@ export default function ProductCard({ product }) {
       <div className="mt-auto mx-4 border-t border-[#e2e8f0] dark:border-white/[0.06] py-3 flex items-end justify-between gap-3">
         <div>
           <p className="text-[10px] text-[#94a3b8] dark:text-white/30 uppercase tracking-wider mb-0.5">Precio neto</p>
-          <Price amount={product.public_price} className="text-base font-semibold text-[#0f172a] dark:text-white" />
+          <span className="text-base font-semibold text-[#0f172a] dark:text-white">{formatUSD(product.public_price)}</span>
         </div>
         <div className="flex gap-2 shrink-0">
           <Link

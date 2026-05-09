@@ -113,4 +113,18 @@ export const adminSupplierList = (search = '') =>
 export const adminSupplierImportPreview = (supplierSku, margin) =>
   api.post('/admin/products/import/from-supplier', { supplier_sku: supplierSku, margin }).then(r => r.data)
 
+// ─── Shipping / Chilexpress ───────────────────────────────────────────────────
+
+export const getShippingCommunes = () =>
+  api.get('/shipping/communes').then(r => r.data)
+
+export const getShippingQuote = (commune, productIds = [], declaredValue = 0) =>
+  api.get('/shipping/quote', {
+    params: {
+      commune,
+      product_ids: productIds.join(','),
+      declared_value_clp: declaredValue,
+    }
+  }).then(r => r.data)
+
 export default api

@@ -42,6 +42,12 @@ class Order(Base):
     # Tipo de cambio aplicado (USD → CLP) al momento de generar la orden
     exchange_rate_used = Column(Numeric(10, 2), nullable=True)
 
+    # Envío Chilexpress
+    shipping_address = Column(String(255), nullable=True)
+    shipping_commune = Column(String(100), nullable=True)
+    shipping_region  = Column(String(100), nullable=True)
+    shipping_cost    = Column(Numeric(10, 2), nullable=True, default=0)
+
     user  = relationship("User", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 

@@ -45,8 +45,7 @@ def send_verification_email(to_email: str, token: str) -> None:
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:16px;">
       <div style="text-align:center;margin-bottom:28px;">
-        <div style="display:inline-block;background:#1e40af;color:#fff;font-weight:700;font-size:18px;
-                    width:40px;height:40px;line-height:40px;border-radius:10px;margin-bottom:12px;">F</div>
+        <img src="{settings.FRONTEND_URL}/logo.png" alt="Fast-IT" style="height:48px;width:auto;margin-bottom:12px;" />
         <h1 style="margin:0;font-size:22px;color:#0f172a;">Verifica tu correo</h1>
         <p style="margin:8px 0 0;color:#64748b;font-size:14px;">Fast-IT</p>
       </div>
@@ -79,8 +78,7 @@ def send_password_reset_email(to_email: str, token: str) -> None:
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:16px;">
       <div style="text-align:center;margin-bottom:28px;">
-        <div style="display:inline-block;background:#1e40af;color:#fff;font-weight:700;font-size:18px;
-                    width:40px;height:40px;line-height:40px;border-radius:10px;margin-bottom:12px;">F</div>
+        <img src="{settings.FRONTEND_URL}/logo.png" alt="Fast-IT" style="height:48px;width:auto;margin-bottom:12px;" />
         <h1 style="margin:0;font-size:22px;color:#0f172a;">Restablece tu contraseña</h1>
         <p style="margin:8px 0 0;color:#64748b;font-size:14px;">Fast-IT</p>
       </div>

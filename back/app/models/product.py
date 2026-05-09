@@ -27,6 +27,12 @@ class Product(Base):
     public_price    = Column(Numeric(12, 2), nullable=False)
     stock_status    = Column(Enum(StockStatus), default=StockStatus.on_request)
 
+    # Dimensiones para cotización de envío (Chilexpress)
+    weight_kg  = Column(Numeric(8, 2), nullable=True)  # kg
+    height_cm  = Column(Numeric(8, 2), nullable=True)  # cm
+    width_cm   = Column(Numeric(8, 2), nullable=True)  # cm
+    length_cm  = Column(Numeric(8, 2), nullable=True)  # cm
+
     # Trazabilidad de origen (manual | icecat | ...)
     source             = Column(String(20), server_default="manual", nullable=False)
     source_url         = Column(String(512), nullable=True)

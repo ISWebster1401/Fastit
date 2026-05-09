@@ -31,6 +31,11 @@ class CheckoutRequest(BaseModel):
     boleta_rut      : Optional[str] = None
     boleta_email    : Optional[str] = None
 
+    shipping_address: Optional[str] = None
+    shipping_commune: Optional[str] = None
+    shipping_region : Optional[str] = None
+    shipping_cost   : Optional[float] = 0
+
     @model_validator(mode="after")
     def validate_document_fields(self):
         if self.document_type == DocumentType.factura:
@@ -71,6 +76,10 @@ class OrderOut(BaseModel):
     boleta_rut               : Optional[str] = None
     boleta_email             : Optional[str] = None
     exchange_rate_used       : Optional[float] = None
+    shipping_address         : Optional[str] = None
+    shipping_commune         : Optional[str] = None
+    shipping_region          : Optional[str] = None
+    shipping_cost            : Optional[float] = None
     client_name              : Optional[str] = None
     client_email             : Optional[str] = None
     items                    : list[OrderItemOut] = []

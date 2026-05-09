@@ -64,12 +64,11 @@ def create_payment(
         raise HTTPException(404, "Orden pendiente no encontrada")
 
     try:
-        rate = get_usd_to_clp()
-        amount_clp = int(round(float(order.total_amount) * rate.rate))
+        # total_amount ya está en CLP desde checkout — no reconvertir
+        amount_clp = int(round(float(order.total_amount)))
         if amount_clp <= 0:
             raise HTTPException(400, "Monto inválido para iniciar pago")
 
-        order.exchange_rate_used = Decimal(str(rate.rate))
         db.commit()
 
         tx = _build_transaction()

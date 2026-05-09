@@ -1,3 +1,9 @@
+databases:
+  - name: fastit-db
+    databaseName: fastit
+    user: fastit
+    plan: free
+
 services:
   - type: web
     name: fastit
@@ -10,7 +16,9 @@ services:
       - key: DEBUG
         value: "false"
       - key: DATABASE_URL
-        value: sqlite:///./fastit.db
+        fromDatabase:
+          name: fastit-db
+          property: connectionString
       - key: OPENAI_API_KEY
         sync: false
       - key: BACKEND_URL
@@ -22,4 +30,6 @@ services:
       - key: SENDGRID_FROM_EMAIL
         value: "nahum.diaz@nadilop.cl"
       - key: ICECAT_USERNAME
+        sync: false
+      - key: CHILEXPRESS_API_KEY
         sync: false
