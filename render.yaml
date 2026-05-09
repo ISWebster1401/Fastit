@@ -17,3 +17,9 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: SENDGRID_FROM_EMAIL
+        value: "nahum.diaz@nadilop.cl"
+      - key: ICECAT_USERNAME
+        sync: false
