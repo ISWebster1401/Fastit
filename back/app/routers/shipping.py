@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.product import Product
-from app.services.chilexpress_service import quote, COMMUNES
+from app.services.chilexpress_service import quote, get_communes
 
 router = APIRouter(prefix="/api/shipping", tags=["Shipping"])
 
@@ -20,10 +20,7 @@ _DEFAULT_WEIGHT: dict[str, float] = {
 
 @router.get("/communes")
 def list_communes():
-    return [
-        {"commune": name, "region": code_region[1]}
-        for name, code_region in sorted(COMMUNES.items())
-    ]
+    return get_communes()
 
 
 @router.get("/quote")

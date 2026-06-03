@@ -39,7 +39,13 @@ class Settings:
     # Render: definir SENDGRID_API_KEY y SENDGRID_FROM_EMAIL (remitente verificado en SendGrid).
     SENDGRID_API_KEY: str = ""
     SENDGRID_FROM_EMAIL: str = "noreply@fastit.cl"
+    # Chilexpress expone 3 APIs y cada una tiene su propia subscription key.
+    # CHILEXPRESS_API_KEY queda como fallback genérico si solo se define una.
     CHILEXPRESS_API_KEY: str = ""
+    CHILEXPRESS_API_KEY_COTIZADOR: str = ""   # API Cotizador (tarifas)
+    CHILEXPRESS_API_KEY_ENVIOS: str = ""      # API Envíos (crear OT)
+    CHILEXPRESS_API_KEY_COBERTURA: str = ""   # API Cobertura (comunas)
+    CHILEXPRESS_ENV: str = "test"             # "test" | "production"
     CHILEXPRESS_BASE_URL: str = "https://testservices.wschilexpress.com"
     CATEGORY_MARGINS: Dict[str, float] = field(
         default_factory=lambda: {
@@ -82,6 +88,10 @@ def _build_settings() -> Settings:
         SENDGRID_API_KEY=os.getenv("SENDGRID_API_KEY", ""),
         SENDGRID_FROM_EMAIL=os.getenv("SENDGRID_FROM_EMAIL", "noreply@fastit.cl"),
         CHILEXPRESS_API_KEY=os.getenv("CHILEXPRESS_API_KEY", ""),
+        CHILEXPRESS_API_KEY_COTIZADOR=os.getenv("CHILEXPRESS_API_KEY_COTIZADOR", ""),
+        CHILEXPRESS_API_KEY_ENVIOS=os.getenv("CHILEXPRESS_API_KEY_ENVIOS", ""),
+        CHILEXPRESS_API_KEY_COBERTURA=os.getenv("CHILEXPRESS_API_KEY_COBERTURA", ""),
+        CHILEXPRESS_ENV=os.getenv("CHILEXPRESS_ENV", "test"),
         CHILEXPRESS_BASE_URL=os.getenv("CHILEXPRESS_BASE_URL", "https://testservices.wschilexpress.com"),
     )
 

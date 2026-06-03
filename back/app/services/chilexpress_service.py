@@ -125,11 +125,80 @@ def _base_url() -> str:
     return "https://testservices.wschilexpress.com"
 
 
-def _headers() -> dict:
+def _key(which: str) -> str:
+    """
+    Devuelve la subscription key de la API pedida ('cotizador' | 'envios' | 'cobertura').
+    Cada producto Chilexpress tiene su propia key; si no está definida, cae al
+    fallback genérico CHILEXPRESS_API_KEY.
+    """
+    s = _settings()
+    specific = {
+        "cotizador": getattr(s, "CHILEXPRESS_API_KEY_COTIZADOR", ""),
+        "envios":    getattr(s, "CHILEXPRESS_API_KEY_ENVIOS", ""),
+        "cobertura": getattr(s, "CHILEXPRESS_API_KEY_COBERTURA", ""),
+    }.get(which, "")
+    return specific or getattr(s, "CHILEXPRESS_API_KEY", "")
+
+
+def _headers(which: str) -> dict:
     return {
-        "Ocp-Apim-Subscription-Key": _settings().CHILEXPRESS_API_KEY,
+        "Ocp-Apim-Subscription-Key": _key(which),
         "Content-Type": "application/json",
     }
+
+
+def _titlecase(s: str) -> str:
+    """La API devuelve nombres en MAYÚSCULAS (ALHUE); los pasamos a Título."""
+    return s.title() if isinstance(s, str) and s.isupper() else (s or "")
+
+
+# Caché en memoria de comunas reales {nombre_lower: (coverage_code, region)}.
+# Se llena perezosamente desde la API Cobertura; si falla, usa COMMUNES hardcodeadas.
+_COMMUNE_CACHE: Optional[dict] = None
+
+
+def get_communes() -> list[dict]:
+    """
+    Lista de comunas para el frontend. Usa la API real (cacheada) si hay key de
+    cobertura; si no, las comunas hardcodeadas.
+    """
+    display = _commune_map().get("_display", {})
+    return sorted(
+        [{"commune": name, "region": region} for name, (_code, region) in display.items()],
+        key=lambda c: c["commune"],
+    )
+
+
+def _commune_map() -> dict:
+    """
+    Devuelve el caché {nombre_lower: (coverage_code, region)} (+ clave especial
+    '_display' con nombres legibles). Lazy-load desde la API con fallback.
+    """
+    global _COMMUNE_CACHE
+    if _COMMUNE_CACHE is not None:
+        return _COMMUNE_CACHE
+
+    cache: dict = {}
+    display: dict = {}
+    if _key("cobertura"):
+        try:
+            for c in get_communes_from_api():
+                name = c["commune"]
+                if not name:
+                    continue
+                cache[name.strip().lower()] = (c["coverage_code"], c["region"])
+                display[name] = (c["coverage_code"], c["region"])
+        except Exception as exc:
+            logger.error("Chilexpress: no se pudo cargar comunas reales: %s", exc)
+
+    if not cache:  # fallback hardcodeado
+        for name, (code, region) in COMMUNES.items():
+            cache[name.strip().lower()] = (code, region)
+            display[name] = (code, region)
+
+    cache["_display"] = display
+    _COMMUNE_CACHE = cache
+    return cache
 
 
 # ─── API 1: Cobertura ─────────────────────────────────────────────────────────
@@ -141,22 +210,25 @@ def get_communes_from_api() -> list[dict]:
     """
     import httpx
     try:
-        url = f"{_base_url()}/georreferencia/api/v1.0/regiones"
-        resp = httpx.get(url, headers=_headers(), timeout=10)
+        url = f"{_base_url()}/georeference/api/v1.0/regions"
+        resp = httpx.get(url, headers=_headers("cobertura"), timeout=10)
         resp.raise_for_status()
-        regions = resp.json().get("data", {}).get("regions", [])
+        regions = resp.json().get("regions", [])
 
         communes = []
         for reg in regions:
-            reg_code = reg.get("regionCode")
-            reg_name = reg.get("regionName", "")
-            counties_url = f"{_base_url()}/georreferencia/api/v1.0/regiones/{reg_code}/ciudades"
-            cr = httpx.get(counties_url, headers=_headers(), timeout=10)
+            reg_id   = reg.get("regionId")
+            reg_name = _titlecase(reg.get("regionName", ""))
+            counties_url = (
+                f"{_base_url()}/georeference/api/v1.0/coverage-areas"
+                f"?RegionCode={reg_id}&type=0"
+            )
+            cr = httpx.get(counties_url, headers=_headers("cobertura"), timeout=10)
             if cr.status_code != 200:
                 continue
-            for c in cr.json().get("data", {}).get("cities", []):
+            for c in cr.json().get("coverageAreas", []):
                 communes.append({
-                    "commune":       c.get("countyName", ""),
+                    "commune":       _titlecase(c.get("countyName", "")),
                     "region":        reg_name,
                     "coverage_code": c.get("countyCode", ""),
                 })
@@ -169,12 +241,12 @@ def get_communes_from_api() -> list[dict]:
 # ─── API 2: Cotizador ─────────────────────────────────────────────────────────
 
 def quote(commune: str, weight_kg: float = 5.0, declared_value_clp: int = 0) -> Optional[ShippingQuote]:
-    entry = COMMUNES.get(commune)
+    entry = _commune_map().get((commune or "").strip().lower())
     if not entry:
         return None
     coverage_code, region = entry
 
-    if _settings().CHILEXPRESS_API_KEY:
+    if _key("cotizador"):
         return _quote_real(coverage_code, commune, region, weight_kg, declared_value_clp)
     return _quote_mock(coverage_code, commune, region)
 
@@ -193,7 +265,7 @@ def _quote_real(
     weight_kg: float, declared_value_clp: int,
 ) -> Optional[ShippingQuote]:
     import httpx
-    url  = f"{_base_url()}/tarificacion/api/v1.0/cotizaciones"
+    url  = f"{_base_url()}/rating/api/v1.0/rates/courier"
     body = {
         "originCountyCode":      "STGO",
         "destinationCountyCode": coverage_code,
@@ -206,7 +278,7 @@ def _quote_real(
         "declaredWorth": declared_value_clp,
     }
     try:
-        resp = httpx.post(url, json=body, headers=_headers(), timeout=10)
+        resp = httpx.post(url, json=body, headers=_headers("cotizador"), timeout=10)
         resp.raise_for_status()
         rates = resp.json().get("data", {}).get("courierServiceOptions", [])
         if not rates:
@@ -238,7 +310,7 @@ def create_shipment(
     API Envíos: crea una OT (Orden de Transporte) en Chilexpress.
     Sin CHILEXPRESS_API_KEY retorna OT mock.
     """
-    if not _settings().CHILEXPRESS_API_KEY:
+    if not _key("envios"):
         return ShipmentOT(
             ot_number=f"MOCK-{order_id:06d}",
             label_url="",
@@ -252,7 +324,7 @@ def _create_shipment_real(
     commune_code: str, weight_kg: float, declared_value_clp: int,
 ) -> ShipmentOT:
     import httpx
-    url  = f"{_base_url()}/envios/api/v1.0/shipments"
+    url  = f"{_base_url()}/transport-orders/api/v1.0/transport-orders"
     body = {
         "header": {
             "certificateNumber": 0,
@@ -287,7 +359,7 @@ def _create_shipment_real(
         }],
     }
     try:
-        resp = httpx.post(url, json=body, headers=_headers(), timeout=15)
+        resp = httpx.post(url, json=body, headers=_headers("envios"), timeout=15)
         resp.raise_for_status()
         data    = resp.json().get("data", {})
         ot      = data.get("barCode") or data.get("otNumber") or f"FIT{order_id}"

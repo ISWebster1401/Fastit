@@ -139,22 +139,52 @@ def parse_icecat_url(url: str) -> ParsedIcecatRef:
 
 # ─── Internal helpers ─────────────────────────────────────────────────────────
 
+def _as_text(value) -> str:
+    """
+    Coacciona cualquier valor de Icecat a texto plano.
+    La API LIVE devuelve muchos campos como dicts localizados
+    ({"Value": "...", "Language": "ES"} o {"_": "..."}), mientras que el mock
+    usa strings simples. Esta función maneja ambos casos sin romperse.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        for k in ("Value", "_", "PresentationValue", "Name"):
+            inner = value.get(k)
+            text = _as_text(inner)
+            if text:
+                return text
+        return ""
+    if isinstance(value, (list, tuple)):
+        return ", ".join(t for t in (_as_text(x) for x in value) if t)
+    return str(value).strip()
+
+
 def _extract_specs(features_groups: list) -> dict[str, str]:
-    """Flatten FeaturesGroups → {feature_name: value_with_unit}."""
+    """Flatten FeaturesGroups → {feature_name: value_with_unit}.
+
+    Soporta el formato del mock (Feature.Name string + LocalValue._) y el de la
+    API LIVE (Feature.Name dict localizado + PresentationValue/RawValue/Value).
+    """
     specs: dict[str, str] = {}
-    for group in features_groups:
+    for group in features_groups or []:
         for feat in group.get("Features", []):
-            name  = feat.get("Feature", {}).get("Name", "").strip()
-            value = feat.get("LocalValue", {}).get("_", "").strip()
-            if name and value:
-                # append unit if present
-                signs = (
-                    feat.get("Measure", {})
-                    .get("Signs", {})
-                    .get("Sign", [])
-                )
-                unit = signs[0].get("_", "") if signs else ""
-                specs[name] = f"{value} {unit}".strip() if unit else value
+            name = _as_text(feat.get("Feature", {}).get("Name"))
+            value = (
+                _as_text(feat.get("PresentationValue"))
+                or _as_text(feat.get("LocalValue"))
+                or _as_text(feat.get("RawValue"))
+                or _as_text(feat.get("Value"))
+            )
+            if not (name and value):
+                continue
+            # añade la unidad si existe
+            measure = feat.get("Measure") or {}
+            signs = (measure.get("Signs") or {}).get("Sign") if isinstance(measure, dict) else None
+            unit = _as_text(signs[0]) if isinstance(signs, list) and signs else _as_text(signs)
+            specs[name] = f"{value} {unit}".strip() if unit else value
     return specs
 
 
@@ -169,6 +199,11 @@ def _parse_icecat_json(payload: dict, product_id: str) -> Optional[RawIcecatProd
         return None
 
     if isinstance(payload, dict) and payload.get("msg") and payload.get("msg") != "OK":
+        return None
+
+    # Respuesta de error de la API LIVE: {"StatusCode":.., "Code":404, "Error":.., "Message":..}
+    if isinstance(payload, dict) and payload.get("Code") and not payload.get("data"):
+        logger.info("Icecat: respuesta de error para %s: %s", product_id, payload.get("Message"))
         return None
 
     data = payload.get("data") or payload
@@ -187,12 +222,20 @@ def _parse_icecat_json(payload: dict, product_id: str) -> Optional[RawIcecatProd
         brand_obj   = general.get("Brand") or general.get("BrandName") or ""
         brand_name  = brand_obj.get("Value") if isinstance(brand_obj, dict) else brand_obj
         description = general.get("Description") or {}
+        summary     = general.get("SummaryDescription") or {}
+        # En la API LIVE el texto suele venir en SummaryDescription; en otras
+        # respuestas/mock viene en Description o directo en GeneralInfo.
         short_desc  = (
-            description.get("ShortDesc") if isinstance(description, dict) else ""
-        ) or general.get("ShortDesc", "")
+            _as_text(description.get("ShortDesc") if isinstance(description, dict) else None)
+            or _as_text(summary.get("ShortSummaryDescription") if isinstance(summary, dict) else None)
+            or _as_text(general.get("ShortDesc"))
+        )
         long_desc   = (
-            description.get("LongDesc") if isinstance(description, dict) else ""
-        ) or general.get("LongDesc", short_desc)
+            _as_text(description.get("LongDesc") if isinstance(description, dict) else None)
+            or _as_text(summary.get("LongSummaryDescription") if isinstance(summary, dict) else None)
+            or _as_text(general.get("LongDesc"))
+            or short_desc
+        )
         category_obj = general.get("Category") or {}
         category_nm_obj = category_obj.get("Name") if isinstance(category_obj, dict) else None
         category_name = (
@@ -217,12 +260,12 @@ def _parse_icecat_json(payload: dict, product_id: str) -> Optional[RawIcecatProd
 
     return RawIcecatProduct(
         product_id    = product_id_val,
-        title         = (title or "").strip(),
-        brand         = (brand_name or "").strip(),
-        short_desc    = (short_desc or "").strip(),
-        long_desc     = (long_desc or short_desc or title or "").strip(),
-        image_url     = (image_url or "").strip(),
-        category_name = category_name,
+        title         = _as_text(title),
+        brand         = _as_text(brand_name),
+        short_desc    = _as_text(short_desc),
+        long_desc     = _as_text(long_desc) or _as_text(short_desc) or _as_text(title),
+        image_url     = _as_text(image_url),
+        category_name = _as_text(category_name) or "servers",
         specs         = specs,
         raw           = payload,
     )

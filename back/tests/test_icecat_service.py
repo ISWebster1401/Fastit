@@ -110,7 +110,11 @@ async def test_map_to_internal_description_fallback():
 
 # ─── Import endpoints (integration) ──────────────────────────────────────────
 
-def test_import_preview_valid_url(client, admin_token):
+def test_import_preview_valid_url(client, admin_token, monkeypatch):
+    # Forzamos el proveedor mock (sin credenciales) para que el test sea
+    # determinista y no dependa de la API real de Icecat ni de internet.
+    monkeypatch.setenv("ICECAT_USERNAME", "")
+    monkeypatch.setenv("ICECAT_PASSWORD", "")
     resp = client.post(
         "/api/admin/products/import/preview",
         data={"icecat_url": "83791490", "remove_bg": "false"},
