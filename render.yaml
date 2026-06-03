@@ -33,3 +33,13 @@ services:
         sync: false
       - key: CHILEXPRESS_API_KEY
         sync: false
+      - key: CHILEXPRESS_BASE_URL
+        sync: false
+      # Transbank WebpayPlus — sin definir, usa credenciales de integración (sandbox).
+      # Para producción: setear TRANSBANK_ENV=production con el commerce code y API key reales.
+      - key: TRANSBANK_COMMERCE_CODE
+        sync: false
+      - key: TRANSBANK_API_KEY
+        sync: false
+      - key: TRANSBANK_ENV
+        sync: false

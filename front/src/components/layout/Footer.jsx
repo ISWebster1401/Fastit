@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 export default function Footer() {
   return (
     <footer className="border-t border-[#e2e8f0]/80 dark:border-white/[0.06] mt-auto transition-colors duration-300">
@@ -10,8 +12,10 @@ export default function Footer() {
           <span className="text-[#e2e8f0] dark:text-white/10">|</span>
           <span>© 2026 Fast-IT</span>
         </div>
-        <div className="text-[#cbd5e1] dark:text-white/15 tracking-wider text-[10px] uppercase">
-          Storage | Servidores | Networking
+        <div className="flex items-center gap-4">
+          <Link to="/terms"   className="hover:text-[#1e40af] dark:hover:text-blue-400 transition-colors">Términos</Link>
+          <Link to="/privacy" className="hover:text-[#1e40af] dark:hover:text-blue-400 transition-colors">Privacidad</Link>
+          <Link to="/contact" className="hover:text-[#1e40af] dark:hover:text-blue-400 transition-colors">Contacto</Link>
         </div>
       </div>
     </footer>

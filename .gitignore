@@ -29,3 +29,15 @@ Thumbs.db
 .vscode/
 .idea/
 back/.venv_py39_broken_20260420_224754/
+
+# Claude Code (config local)
+.claude/
+
+# Carpetas excluidas de iCloud (renombradas a .nosync)
+*.nosync
+*.nosync/
+
+# Duplicados de conflicto que crea iCloud (" 2", " 3", ...)
+* 2/
+* 3/
+* 4/

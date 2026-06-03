@@ -65,6 +65,7 @@ export default function Navbar() {
           <NavLink to="/catalog">Catálogo</NavLink>
           <NavLink to="/advisor">Solución a tu medida</NavLink>
           {user && <NavLink to="/orders">Mis Órdenes</NavLink>}
+          <NavLink to="/contact">Contacto</NavLink>
           {user?.is_admin && <NavLink to="/admin">Admin</NavLink>}
         </div>
 
@@ -103,6 +104,10 @@ export default function Navbar() {
                   {displayName}
                 </span>
               </div>
+                <Link to="/profile"
+                className="text-xs text-[#64748b] dark:text-white/30 hover:text-[#1e40af] dark:hover:text-white transition-colors px-2 py-1.5">
+                Perfil
+              </Link>
               <button onClick={handleLogout}
                 className="text-xs text-[#64748b] dark:text-white/30 hover:text-[#1e40af] dark:hover:text-white transition-colors px-2 py-1.5">
                 Salir

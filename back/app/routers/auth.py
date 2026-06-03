@@ -194,6 +194,47 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
     return {"message": "Contraseña actualizada correctamente"}
 
 
+class UpdateProfileRequest(BaseModel):
+    business_name:     Optional[str] = None
+    business_activity: Optional[str] = None
+    rut:               Optional[str] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password:     str = Field(min_length=8, max_length=128)
+
+
+@router.patch("/profile", response_model=UserOut)
+def update_profile(
+    payload: UpdateProfileRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(__import__('app.services.auth_service', fromlist=['get_current_user']).get_current_user),
+):
+    if payload.business_name is not None:
+        current_user.business_name = payload.business_name.strip() or None
+    if payload.business_activity is not None:
+        current_user.business_activity = payload.business_activity.strip() or None
+    if payload.rut is not None:
+        current_user.rut = payload.rut.strip() or None
+    db.commit()
+    db.refresh(current_user)
+    return UserOut.model_validate(current_user)
+
+
+@router.post("/change-password")
+def change_password(
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(__import__('app.services.auth_service', fromlist=['get_current_user']).get_current_user),
+):
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Contraseña actual incorrecta")
+    current_user.hashed_password = hash_password(payload.new_password)
+    db.commit()
+    return {"message": "Contraseña actualizada correctamente"}
+
+
 @router.post("/resend-verification")
 def resend_verification(
     background_tasks: BackgroundTasks,

@@ -76,6 +76,12 @@ export const forgotPassword = (email) =>
 export const resetPassword = (token, newPassword) =>
   api.post('/auth/reset-password', { token, new_password: newPassword }).then(r => r.data)
 
+export const updateProfile = (payload) =>
+  api.patch('/auth/profile', payload).then(r => r.data)
+
+export const changePassword = (currentPassword, newPassword) =>
+  api.post('/auth/change-password', { current_password: currentPassword, new_password: newPassword }).then(r => r.data)
+
 export const advisorChat = (category, messages) =>
   api.post('/advisor/chat', { category, messages }).then(r => r.data)
 

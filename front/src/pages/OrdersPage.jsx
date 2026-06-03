@@ -78,9 +78,9 @@ export default function OrdersPage() {
               <div className="bg-[#f5f5f7] dark:bg-white/[0.04] border-b border-[#d2d2d7] dark:border-white/[0.07]
                               px-4 py-3 flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-4">
-                  <span className="font-mono text-sm font-semibold text-[#1d1d1f] dark:text-white">
+                  <Link to={`/orders/${order.id}`} className="font-mono text-sm font-semibold text-[#1d1d1f] dark:text-white hover:text-[#1e40af] dark:hover:text-blue-400 transition-colors">
                     Orden #{order.id}
-                  </span>
+                  </Link>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                     STATUS_COLORS[order.status] || 'bg-[#f5f5f7] text-[#6e6e73] dark:bg-white/[0.05] dark:text-white/40'
                   }`}>

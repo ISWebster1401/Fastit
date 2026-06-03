@@ -7,12 +7,18 @@ import ProductDetailPage from './pages/ProductDetailPage'
 import CheckoutPage      from './pages/CheckoutPage'
 import LoginPage         from './pages/LoginPage'
 import OrdersPage        from './pages/OrdersPage'
-import AdminPage          from './pages/AdminPage'
-import AdvisorPage        from './pages/AdvisorPage'
-import PaymentResultPage  from './pages/PaymentResultPage'
-import VerifyEmailPage    from './pages/VerifyEmailPage'
+import OrderDetailPage   from './pages/OrderDetailPage'
+import AdminPage         from './pages/AdminPage'
+import AdvisorPage       from './pages/AdvisorPage'
+import PaymentResultPage from './pages/PaymentResultPage'
+import VerifyEmailPage   from './pages/VerifyEmailPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
-import ResetPasswordPage  from './pages/ResetPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
+import ProfilePage       from './pages/ProfilePage'
+import ContactPage       from './pages/ContactPage'
+import TermsPage         from './pages/TermsPage'
+import PrivacyPage       from './pages/PrivacyPage'
+import NotFoundPage      from './pages/NotFoundPage'
 import { AuthProvider } from './context/AuthContext'
 import { useAuth } from './context/useAuth'
 
@@ -43,16 +49,18 @@ function AppLayout() {
       <Navbar />
       <main className="flex-1">
         <Routes>
-          <Route path="/"             element={<LandingPage />} />
-          <Route path="/catalog"      element={<CatalogPage />} />
-          <Route path="/product/:sku" element={<ProductDetailPage />} />
-          <Route path="/checkout"     element={<CheckoutPage />} />
-          <Route path="/orders"       element={
-            <ProtectedRoute><OrdersPage /></ProtectedRoute>
-          } />
-          <Route path="/admin"        element={
-            <AdminRoute><AdminPage /></AdminRoute>
-          } />
+          <Route path="/"                element={<LandingPage />} />
+          <Route path="/catalog"         element={<CatalogPage />} />
+          <Route path="/product/:sku"    element={<ProductDetailPage />} />
+          <Route path="/checkout"        element={<CheckoutPage />} />
+          <Route path="/contact"         element={<ContactPage />} />
+          <Route path="/terms"           element={<TermsPage />} />
+          <Route path="/privacy"         element={<PrivacyPage />} />
+          <Route path="/orders"          element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
+          <Route path="/orders/:id"      element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
+          <Route path="/profile"         element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/admin"           element={<AdminRoute><AdminPage /></AdminRoute>} />
+          <Route path="*"               element={<NotFoundPage />} />
         </Routes>
       </main>
       <Footer />
@@ -66,13 +74,14 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login"           element={<GuestRoute><LoginPage /></GuestRoute>} />
+          <Route path="/register"        element={<GuestRoute><LoginPage initialMode="register" /></GuestRoute>} />
           <Route path="/auth"            element={<GuestRoute><LoginPage /></GuestRoute>} />
           <Route path="/advisor"         element={<AdvisorPage />} />
           <Route path="/payment-result"  element={<PaymentResultPage />} />
           <Route path="/verify-email"    element={<VerifyEmailPage />} />
           <Route path="/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
           <Route path="/reset-password"  element={<ResetPasswordPage />} />
-          <Route path="/*"       element={<AppLayout />} />
+          <Route path="/*"              element={<AppLayout />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

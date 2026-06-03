@@ -62,8 +62,8 @@ const defaultValues = {
   giro: '',
 }
 
-export default function LoginPage() {
-  const [mode, setMode] = useState('login')
+export default function LoginPage({ initialMode = 'login' }) {
+  const [mode, setMode] = useState(initialMode)
   const [error, setError] = useState(null)
   const [showPass, setShowPass] = useState(false)
   const auth = useAuth()
@@ -261,11 +261,11 @@ export default function LoginPage() {
                     label={
                       <span>
                         Acepto los{' '}
-                        <a href="#" className="font-medium text-[#1e40af] hover:underline">
+                        <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-[#1e40af] hover:underline">
                           Términos
                         </a>{' '}
                         y la{' '}
-                        <a href="#" className="font-medium text-[#1e40af] hover:underline">
+                        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-[#1e40af] hover:underline">
                           Política de Privacidad
                         </a>
                         .
@@ -324,7 +324,7 @@ export default function LoginPage() {
             <p className="auth-footer-note">
               Protegido con cifrado de extremo a extremo.
               <br className="sm:hidden" />{' '}
-              <a href="#" className="transition-colors hover:text-[#64748b]">
+              <a href="/privacy" className="transition-colors hover:text-[#64748b]">
                 Conoce cómo cuidamos tus datos
               </a>
               .
@@ -375,9 +375,9 @@ function BrandPanel() {
       <div className="relative z-10 flex items-center justify-between px-12 pb-8 text-[12px] text-white/50">
         <span>© {new Date().getFullYear()} Fast-IT</span>
         <div className="flex gap-6">
-          <a href="#" className="transition-colors hover:text-white/80">Privacidad</a>
-          <a href="#" className="transition-colors hover:text-white/80">Términos</a>
-          <a href="#" className="transition-colors hover:text-white/80">Soporte</a>
+          <a href="/privacy" className="transition-colors hover:text-white/80">Privacidad</a>
+          <a href="/terms" className="transition-colors hover:text-white/80">Términos</a>
+          <a href="/contact" className="transition-colors hover:text-white/80">Soporte</a>
         </div>
       </div>
     </aside>
