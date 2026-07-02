@@ -406,7 +406,12 @@ export default function AdminPage() {
                               </p>
                             )}
                           </td>
-                          <td className="px-4 py-3"><StatusBadge status={order.status}/></td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <StatusBadge status={order.status}/>
+                              {order.is_quote && <QuoteBadge/>}
+                            </div>
+                          </td>
                           <td className="px-4 py-3 hidden md:table-cell">
                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
                               order.document_type === 'Factura'
@@ -1161,6 +1166,13 @@ function OrderDetail({ order, onUpdate, isUpdating }) {
 
   return (
     <div className="px-4 py-5 space-y-6">
+      {order.is_quote && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-cyan-200 dark:border-cyan-500/30
+                        bg-cyan-50 dark:bg-cyan-500/10 text-cyan-800 dark:text-cyan-300 text-xs">
+          <QuoteBadge/>
+          <span>Solicitud de cotización — el cliente aún no pagó, el total es estimado.</span>
+        </div>
+      )}
       <div>
         <p className="text-xs font-semibold text-[#6e6e73] dark:text-white/40 uppercase tracking-wider mb-4">Estado del pedido</p>
         <div className="flex items-start gap-0">
@@ -1288,6 +1300,16 @@ function StatCard({ label, value, icon, color, bg }) {
         <p className="text-xs text-[#6e6e73] dark:text-white/40 mt-0.5">{label}</p>
       </div>
     </div>
+  )
+}
+
+function QuoteBadge() {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border
+                     bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-500/20 dark:text-cyan-300 dark:border-cyan-500/30">
+      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"/>
+      Cotización
+    </span>
   )
 }
 

@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Integer, String, Numeric, ForeignKey, Enum, DateTime
+from sqlalchemy import Column, Integer, String, Numeric, ForeignKey, Enum, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -28,6 +28,10 @@ class Order(Base):
     status        = Column(Enum(OrderStatus), default=OrderStatus.pending)
     document_type = Column(Enum(DocumentType), nullable=False)
     created_at    = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Cotización (RFQ): el cliente pidió precio/disponibilidad sin pagar todavía.
+    # No es un estado del pipeline de fulfillment — es ortogonal a `status`.
+    is_quote = Column(Boolean, default=False, nullable=True)
 
     # Snapshot de datos de factura al momento de la compra
     invoice_rut               = Column(String(20), nullable=True)

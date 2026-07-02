@@ -150,3 +150,19 @@ class TestAdminUpdateStatus:
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert res.status_code == 422
+
+    def test_status_update_notifies_client_by_email(self, client, admin_token, pending_order, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            "app.routers.admin.email_service.send_order_status_email",
+            lambda to_email, order_id, status, total_amount: calls.append((to_email, order_id, status)),
+        )
+        res = client.patch(
+            f"/api/admin/orders/{pending_order.id}/status",
+            json={"status": "Supplier_Ordered"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert res.status_code == 200
+        assert len(calls) == 1
+        assert calls[0][1] == pending_order.id
+        assert calls[0][2] == "Supplier_Ordered"

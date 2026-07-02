@@ -22,6 +22,7 @@ from app.schemas.product import IcecatPreviewOut, IcecatImportConfirm
 from app.services.auth_service import require_admin
 from app.services.icecat_service import get_provider, map_to_internal, parse_icecat_url
 from app.services.pricing import calculate_public_price
+from app.services import email_service
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
@@ -124,6 +125,14 @@ def update_order_status(
     order.status = payload.status
     db.commit()
     db.refresh(order)
+
+    try:
+        email_service.send_order_status_email(
+            order.client_email, order.id, order.status.value, float(order.total_amount)
+        )
+    except Exception:
+        logger.exception("No se pudo enviar el correo de cambio de estado de la orden %s", order.id)
+
     return order
 
 

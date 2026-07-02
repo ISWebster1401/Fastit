@@ -88,12 +88,15 @@ export default function CheckoutPage() {
     e.preventDefault()
     if (!user) { navigate('/login'); return }
     if (items.length === 0) return
+    const action = e.nativeEvent.submitter?.value || 'pay'
+    const isQuote = action === 'quote'
     setLoading(true)
     setError(null)
     try {
       const orderPayload = {
         document_type: docType,
         items: items.map(i => ({ product_id: i.id, quantity: i.quantity })),
+        request_quote: isQuote,
         ...(docType === 'Factura'
           ? {
               invoice_rut: form.invoice_rut,
@@ -112,6 +115,12 @@ export default function CheckoutPage() {
       }
       const order = await checkout(orderPayload)
       clearCart()
+
+      if (isQuote) {
+        setStep('quote_sent')
+        return
+      }
+
       setStep('redirecting')
       if (pasarela === 'flow') {
         const { url } = await createFlowPayment(order.id)
@@ -139,6 +148,28 @@ export default function CheckoutPage() {
       <div>
         <p className="font-semibold text-[#1d1d1f] dark:text-white">Redirigiendo a Transbank…</p>
         <p className="text-sm text-[#6e6e73] dark:text-white/40 mt-1">No cierres esta ventana.</p>
+      </div>
+    </div>
+  )
+
+  if (step === 'quote_sent') return (
+    <div className="max-w-lg mx-auto px-4 py-24 text-center space-y-6">
+      <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20
+                      rounded-2xl flex items-center justify-center mx-auto text-emerald-600 dark:text-emerald-400">
+        <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <div>
+        <p className="font-semibold text-[#1d1d1f] dark:text-white">Solicitud de cotización enviada</p>
+        <p className="text-sm text-[#6e6e73] dark:text-white/40 mt-1">
+          Nuestro equipo técnico va a revisar tu solicitud y te va a contactar a la brevedad
+          con disponibilidad, precio final y condiciones de despacho.
+        </p>
+      </div>
+      <div className="flex items-center justify-center gap-3">
+        <Link to="/orders" className="btn-secondary">Ver mis órdenes</Link>
+        <Link to="/catalog" className="btn-primary">Seguir explorando</Link>
       </div>
     </div>
   )
@@ -430,6 +461,8 @@ export default function CheckoutPage() {
 
             <button
               type="submit"
+              name="action"
+              value="pay"
               disabled={loading || !user}
               className="btn-primary w-full py-3 text-base flex items-center justify-center gap-2"
             >
@@ -454,6 +487,25 @@ export default function CheckoutPage() {
 
             <p className="text-xs text-[#6e6e73] dark:text-white/30 text-center">
               Pago seguro vía Transbank Webpay
+            </p>
+
+            <div className="flex items-center gap-3">
+              <hr className="flex-1 border-[#d2d2d7] dark:border-white/[0.07]" />
+              <span className="text-[10px] text-[#94a3b8] dark:text-white/25 uppercase tracking-wider">o</span>
+              <hr className="flex-1 border-[#d2d2d7] dark:border-white/[0.07]" />
+            </div>
+
+            <button
+              type="submit"
+              name="action"
+              value="quote"
+              disabled={loading || !user}
+              className="btn-secondary w-full py-2.5 text-sm"
+            >
+              Solicitar cotización sin pago
+            </button>
+            <p className="text-xs text-[#6e6e73] dark:text-white/30 text-center">
+              Te contactamos con precio final y disponibilidad, sin comprometerte a pagar ahora.
             </p>
           </div>
         </div>

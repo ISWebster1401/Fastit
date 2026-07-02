@@ -21,6 +21,7 @@ from app.models.order import Order, OrderStatus
 from app.services.auth_service import get_current_user
 from app.services.exchange_rate_service import get_usd_to_clp
 from app.services.supplier import supplier_service
+from app.services import email_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/payments", tags=["Payments"])
@@ -122,6 +123,12 @@ async def confirm_payment(
                 await supplier_service.create_purchase_order(order.id, items)
                 order.status = OrderStatus.supplier_ordered
                 db.commit()
+                try:
+                    email_service.send_order_status_email(
+                        order.client_email, order.id, order.status.value, float(order.total_amount)
+                    )
+                except Exception:
+                    logger.exception("No se pudo enviar el correo de confirmación de pago de la orden %s", order.id)
 
             return RedirectResponse(
                 f"{settings.FRONTEND_URL}/payment-result?status=success&order_id={order_id}",

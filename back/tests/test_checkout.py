@@ -137,6 +137,38 @@ class TestCheckoutFactura:
         assert data["invoice_business_name"] == "Empresa Test SpA"
 
 
+class TestCheckoutQuote:
+    def test_request_quote_sets_is_quote(self, client, user_token, server_product):
+        res = client.post(
+            "/api/checkout",
+            headers=auth_headers(user_token),
+            json={
+                "document_type": "Boleta",
+                "items": [{"product_id": server_product.id, "quantity": 1}],
+                "request_quote": True,
+                **BOLETA_FIELDS,
+            },
+        )
+        assert res.status_code == 201
+        data = res.json()
+        assert data["is_quote"] is True
+        # Una cotización no dispara pago: sigue en Pending hasta que ventas la gestione.
+        assert data["status"] == "Pending"
+
+    def test_normal_checkout_defaults_is_quote_false(self, client, user_token, server_product):
+        res = client.post(
+            "/api/checkout",
+            headers=auth_headers(user_token),
+            json={
+                "document_type": "Boleta",
+                "items": [{"product_id": server_product.id, "quantity": 1}],
+                **BOLETA_FIELDS,
+            },
+        )
+        assert res.status_code == 201
+        assert res.json()["is_quote"] is False
+
+
 class TestCheckoutValidation:
     def test_empty_cart_rejected(self, client, user_token, regular_user):
         res = client.post(
