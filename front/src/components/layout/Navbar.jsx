@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useCartStore, useAuthStore } from '../../store/cartStore'
+
+const MotionDiv = motion.div
+const MotionSpan = motion.span
 import { useTheme } from '../../hooks/useTheme'
 import { resendVerification } from '../../api/client'
 
@@ -121,18 +125,29 @@ export default function Navbar() {
           )}
 
           {/* Carrito */}
-          <Link to="/checkout"
-            className="relative flex items-center gap-2 bg-[#1e40af] dark:bg-blue-500 hover:bg-[#1d4ed8] dark:hover:bg-blue-400 text-white px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300 active:scale-[0.97]">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
-            </svg>
-            <span className="hidden sm:inline">Carrito</span>
-            {count > 0 && (
-              <span className="bg-white text-[#1e40af] dark:text-blue-500 text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
-                {count}
-              </span>
-            )}
-          </Link>
+          <MotionDiv whileTap={{ scale: 0.97 }}>
+            <Link to="/checkout"
+              className="relative flex items-center gap-2 bg-[#1e40af] dark:bg-blue-500 hover:bg-[#1d4ed8] dark:hover:bg-blue-400 text-white px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-300">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+              </svg>
+              <span className="hidden sm:inline">Carrito</span>
+              <AnimatePresence>
+                {count > 0 && (
+                  <MotionSpan
+                    key={count}
+                    initial={{ scale: 0.4, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.4, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+                    className="bg-white text-[#1e40af] dark:text-blue-500 text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none"
+                  >
+                    {count}
+                  </MotionSpan>
+                )}
+              </AnimatePresence>
+            </Link>
+          </MotionDiv>
         </div>
       </nav>
     </header>

@@ -1,5 +1,24 @@
 import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { useAuthStore } from '../store/cartStore'
+
+const MotionLink = motion.create(Link)
+
+const fadeUp = {
+  hidden:  { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } },
+}
+
+const stagger = {
+  hidden:  {},
+  visible: { transition: { staggerChildren: 0.09 } },
+}
+
+const revealProps = {
+  initial: 'hidden',
+  whileInView: 'visible',
+  viewport: { once: true, amount: 0.3 },
+}
 
 const CATEGORIES = [
   {
@@ -112,7 +131,12 @@ export default function LandingPage() {
     <div className="bg-white dark:bg-[#04080f] text-gray-900 dark:text-white overflow-x-hidden">
 
       {/* ── HERO ──────────────────────────────────────────────────────────── */}
-      <section className="relative min-h-[92vh] flex flex-col items-center justify-center px-4 pt-20 pb-28 text-center overflow-hidden">
+      <motion.section
+        initial="hidden"
+        animate="visible"
+        variants={stagger}
+        className="relative min-h-[92vh] flex flex-col items-center justify-center px-4 pt-20 pb-28 text-center overflow-hidden"
+      >
 
         {/* Background glows — dark mode */}
         <div className="pointer-events-none absolute inset-0 hidden dark:block">
@@ -137,43 +161,49 @@ export default function LandingPage() {
         </div>
 
         {/* Badge */}
-        <div className="relative mb-8 inline-flex items-center gap-2 rounded-full border border-blue-500/20 dark:border-blue-500/20 bg-blue-50 dark:bg-blue-500/5 px-4 py-1.5 text-xs text-blue-600 dark:text-blue-300/80 font-medium tracking-wider uppercase">
+        <motion.div variants={fadeUp} className="relative mb-8 inline-flex items-center gap-2 rounded-full border border-blue-500/20 dark:border-blue-500/20 bg-blue-50 dark:bg-blue-500/5 px-4 py-1.5 text-xs text-blue-600 dark:text-blue-300/80 font-medium tracking-wider uppercase">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400 animate-pulse"/>
           Hardware crítico, asesoría experta
-        </div>
+        </motion.div>
 
         {/* Headline */}
-        <h1 className="relative max-w-4xl text-5xl sm:text-6xl md:text-7xl font-semibold tracking-tight leading-[1.08] mb-6 text-gray-900 dark:text-white">
+        <motion.h1 variants={fadeUp} className="relative max-w-4xl text-5xl sm:text-6xl md:text-7xl font-semibold tracking-tight leading-[1.08] mb-6 text-gray-900 dark:text-white">
           Infraestructura crítica.
           <br/>
           <span className="bg-gradient-to-r from-blue-500 via-blue-400 to-cyan-400 dark:from-blue-400 dark:via-blue-300 dark:to-cyan-300 bg-clip-text text-transparent">
             Entregada.
           </span>
-        </h1>
+        </motion.h1>
 
-        <p className="relative max-w-xl text-gray-500 dark:text-white/40 text-lg sm:text-xl leading-relaxed mb-10">
+        <motion.p variants={fadeUp} className="relative max-w-xl text-gray-500 dark:text-white/40 text-lg sm:text-xl leading-relaxed mb-10">
           Servidores, storage y redes enterprise.
           Sin bodega, sin sobreprecio, con asesoría técnica real.
-        </p>
+        </motion.p>
 
         {/* CTAs */}
-        <div className="relative flex flex-col sm:flex-row items-center gap-3">
-          <Link
+        <motion.div variants={fadeUp} className="relative flex flex-col sm:flex-row items-center gap-3">
+          <MotionLink
+            whileHover={{ scale: 1.035 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 22 }}
             to="/catalog"
-            className="px-7 py-3.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-all duration-200 active:scale-[0.97] shadow-lg shadow-blue-500/30"
+            className="px-7 py-3.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-500/30"
           >
             Ver catálogo →
-          </Link>
-          <Link
+          </MotionLink>
+          <MotionLink
+            whileHover={{ scale: 1.035 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 22 }}
             to="/advisor"
-            className="px-7 py-3.5 rounded-full border border-gray-200 dark:border-white/10 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-white/25 bg-gray-50 dark:bg-white/[0.04] font-medium text-sm transition-all duration-200 active:scale-[0.97]"
+            className="px-7 py-3.5 rounded-full border border-gray-200 dark:border-white/10 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-white/25 bg-gray-50 dark:bg-white/[0.04] font-medium text-sm"
           >
             Solución a tu medida
-          </Link>
-        </div>
+          </MotionLink>
+        </motion.div>
 
         {/* Brands ticker */}
-        <div className="relative mt-16 w-full max-w-2xl">
+        <motion.div variants={fadeUp} className="relative mt-16 w-full max-w-2xl">
           <p className="text-gray-400 dark:text-white/15 text-xs uppercase tracking-[0.2em] mb-5">
             Marcas certificadas
           </p>
@@ -184,29 +214,29 @@ export default function LandingPage() {
               </span>
             ))}
           </div>
-        </div>
-      </section>
+        </motion.div>
+      </motion.section>
 
       {/* ── STATS BAR ─────────────────────────────────────────────────────── */}
       <div className="border-y border-gray-100 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02]">
-        <div className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-2 sm:grid-cols-4 gap-8">
+        <motion.div {...revealProps} variants={stagger} className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-2 sm:grid-cols-4 gap-8">
           {[
             { value: '8+',    label: 'Marcas enterprise' },
             { value: 'Webpay', label: 'Pago seguro' },
             { value: 'GPT-4o', label: 'Asesor técnico IA' },
             { value: 'Stock',  label: 'Tiempo real' },
           ].map(s => (
-            <div key={s.label} className="text-center">
+            <motion.div key={s.label} variants={fadeUp} className="text-center">
               <p className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{s.value}</p>
               <p className="text-gray-400 dark:text-white/30 text-xs">{s.label}</p>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
 
       {/* ── CATEGORÍAS ────────────────────────────────────────────────────── */}
       <section className="max-w-6xl mx-auto px-4 py-24">
-        <div className="text-center mb-14">
+        <motion.div {...revealProps} variants={fadeUp} className="text-center mb-14">
           <p className="text-xs font-semibold text-blue-500 dark:text-blue-400/60 uppercase tracking-[0.2em] mb-3">
             Catálogo
           </p>
@@ -216,17 +246,21 @@ export default function LandingPage() {
           <p className="text-gray-400 dark:text-white/30 mt-3 max-w-md mx-auto text-sm">
             Hardware de nivel enterprise disponible ahora. Sin tiempos de importación.
           </p>
-        </div>
+        </motion.div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <motion.div {...revealProps} variants={stagger} className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {CATEGORIES.map(cat => (
-            <Link
+            <MotionLink
               key={cat.id}
+              variants={fadeUp}
+              whileHover={{ y: -6 }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 22 }}
               to={cat.href}
               className={`group relative flex flex-col p-6 rounded-2xl border border-gray-100 dark:border-white/[0.07]
                           ${cat.border}
                           bg-white dark:bg-white/[0.03]
-                          transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:hover:shadow-2xl overflow-hidden`}
+                          hover:shadow-xl dark:hover:shadow-2xl overflow-hidden`}
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${cat.hoverGrad} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}/>
               <div className="relative">
@@ -242,43 +276,51 @@ export default function LandingPage() {
                   </svg>
                 </div>
               </div>
-            </Link>
+            </MotionLink>
           ))}
-        </div>
+        </motion.div>
       </section>
 
       {/* ── VALUE PROPS ───────────────────────────────────────────────────── */}
       <section className="border-t border-gray-100 dark:border-white/[0.05]">
         <div className="max-w-6xl mx-auto px-4 py-24">
-          <div className="text-center mb-14">
+          <motion.div {...revealProps} variants={fadeUp} className="text-center mb-14">
             <p className="text-xs font-semibold text-blue-500 dark:text-blue-400/60 uppercase tracking-[0.2em] mb-3">
               Por qué Fast-IT
             </p>
             <h2 className="text-3xl sm:text-4xl font-semibold text-gray-900 dark:text-white tracking-tight">
               Diferente desde el origen
             </h2>
-          </div>
+          </motion.div>
 
-          <div className="grid sm:grid-cols-3 gap-6">
+          <motion.div {...revealProps} variants={stagger} className="grid sm:grid-cols-3 gap-6">
             {VALUE_PROPS.map(vp => (
-              <div
+              <motion.div
                 key={vp.title}
-                className="p-7 rounded-2xl border border-gray-100 dark:border-white/[0.06] bg-white dark:bg-white/[0.025] transition-all duration-300 hover:border-gray-200 dark:hover:border-white/[0.12] hover:shadow-md dark:hover:shadow-none"
+                variants={fadeUp}
+                whileHover={{ y: -4 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+                className="p-7 rounded-2xl border border-gray-100 dark:border-white/[0.06] bg-white dark:bg-white/[0.025] hover:border-gray-200 dark:hover:border-white/[0.12] hover:shadow-md dark:hover:shadow-none"
               >
                 <div className={`w-10 h-10 rounded-xl ${vp.bg} flex items-center justify-center mb-5 ${vp.color}`}>
                   {vp.icon}
                 </div>
                 <p className="font-semibold text-gray-800 dark:text-white text-base mb-2">{vp.title}</p>
                 <p className="text-gray-500 dark:text-white/35 text-sm leading-relaxed">{vp.desc}</p>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* ── ASESOR CALLOUT ────────────────────────────────────────────────── */}
       <section className="max-w-6xl mx-auto px-4 pb-24">
-        <div className="relative rounded-3xl overflow-hidden border border-blue-200 dark:border-blue-500/20 px-8 py-14 text-center bg-blue-50 dark:bg-[rgba(37,99,235,0.10)]">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true, amount: 0.4 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="relative rounded-3xl overflow-hidden border border-blue-200 dark:border-blue-500/20 px-8 py-14 text-center bg-blue-50 dark:bg-[rgba(37,99,235,0.10)]">
 
           {/* Dark mode gradient overlay */}
           <div className="pointer-events-none absolute inset-0 hidden dark:block rounded-3xl"
@@ -297,17 +339,20 @@ export default function LandingPage() {
             <p className="text-gray-500 dark:text-white/40 text-base max-w-lg mx-auto mb-8">
               Nuestro asesor IA diagnostica tu carga de trabajo y te recomienda el equipo exacto en menos de 2 minutos.
             </p>
-            <Link
+            <MotionLink
+              whileHover={{ scale: 1.035 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 22 }}
               to={user ? '/advisor' : '/login'}
-              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-all duration-200 active:scale-[0.97] shadow-lg shadow-blue-500/30"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-500/30"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
               </svg>
               Iniciar asesoría
-            </Link>
+            </MotionLink>
           </div>
-        </div>
+        </motion.div>
       </section>
 
     </div>
