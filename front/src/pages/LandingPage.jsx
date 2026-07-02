@@ -1,24 +1,9 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuthStore } from '../store/cartStore'
+import { fadeUp, stagger, revealProps } from '../lib/motion'
 
 const MotionLink = motion.create(Link)
-
-const fadeUp = {
-  hidden:  { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } },
-}
-
-const stagger = {
-  hidden:  {},
-  visible: { transition: { staggerChildren: 0.09 } },
-}
-
-const revealProps = {
-  initial: 'hidden',
-  whileInView: 'visible',
-  viewport: { once: true, amount: 0.3 },
-}
 
 const CATEGORIES = [
   {

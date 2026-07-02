@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useCartStore, useAuthStore } from '../store/cartStore'
 import { checkout, createPayment, createFlowPayment, getShippingCommunes, getShippingQuote } from '../api/client'
+
+const MotionLi  = motion.li
+const MotionDiv = motion.div
 
 const fmtCLP = (n) => `$${Math.round(n).toLocaleString('es-CL')} CLP`
 
@@ -157,7 +161,12 @@ export default function CheckoutPage() {
   )
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <MotionDiv
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
+      className="max-w-5xl mx-auto px-4 sm:px-6 py-8"
+    >
       <h1 className="text-2xl font-semibold text-[#1d1d1f] dark:text-white mb-8
                      border-b border-[#d2d2d7] dark:border-white/[0.07] pb-4">
         Finalizar compra
@@ -175,8 +184,16 @@ export default function CheckoutPage() {
               </h2>
             </div>
             <ul className="divide-y divide-[#d2d2d7] dark:divide-white/[0.06]">
+              <AnimatePresence initial={false}>
               {items.map(item => (
-                <li key={item.id} className="px-4 py-3 flex items-center gap-3">
+                <MotionLi
+                  key={item.id}
+                  layout
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  className="px-4 py-3 flex items-center gap-3 overflow-hidden">
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-mono text-[#86868b] dark:text-white/35">{item.sku}</p>
                     <p className="text-sm font-medium text-[#1d1d1f] dark:text-white truncate">{item.name}</p>
@@ -208,8 +225,9 @@ export default function CheckoutPage() {
                                transition-colors text-lg ml-1">
                     ×
                   </button>
-                </li>
+                </MotionLi>
               ))}
+              </AnimatePresence>
             </ul>
           </div>
 
@@ -237,45 +255,57 @@ export default function CheckoutPage() {
               ))}
             </div>
 
-            {docType === 'Factura' && (
-              <div className="space-y-3 border-t border-[#d2d2d7] dark:border-white/[0.07] pt-4">
-                <div>
-                  <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">RUT Empresa *</label>
-                  <input name="invoice_rut" value={form.invoice_rut} onChange={handleField}
-                    placeholder="76.123.456-7" required className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">Razón Social *</label>
-                  <input name="invoice_business_name" value={form.invoice_business_name} onChange={handleField}
-                    placeholder="Empresa Ejemplo SpA" required className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">Giro Comercial *</label>
-                  <input name="invoice_business_activity" value={form.invoice_business_activity} onChange={handleField}
-                    placeholder="Servicios de tecnología" required className="input-field" />
-                </div>
-              </div>
-            )}
+            <AnimatePresence mode="wait" initial={false}>
+              {docType === 'Factura' && (
+                <MotionDiv key="factura"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="space-y-3 border-t border-[#d2d2d7] dark:border-white/[0.07] pt-4 overflow-hidden">
+                  <div>
+                    <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">RUT Empresa *</label>
+                    <input name="invoice_rut" value={form.invoice_rut} onChange={handleField}
+                      placeholder="76.123.456-7" required className="input-field" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">Razón Social *</label>
+                    <input name="invoice_business_name" value={form.invoice_business_name} onChange={handleField}
+                      placeholder="Empresa Ejemplo SpA" required className="input-field" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">Giro Comercial *</label>
+                    <input name="invoice_business_activity" value={form.invoice_business_activity} onChange={handleField}
+                      placeholder="Servicios de tecnología" required className="input-field" />
+                  </div>
+                </MotionDiv>
+              )}
 
-            {docType === 'Boleta' && (
-              <div className="space-y-3 border-t border-[#d2d2d7] dark:border-white/[0.07] pt-4">
-                <div>
-                  <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">Nombre completo *</label>
-                  <input name="boleta_full_name" value={form.boleta_full_name} onChange={handleField}
-                    placeholder="Juan Pérez González" required className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">RUT *</label>
-                  <input name="boleta_rut" value={form.boleta_rut} onChange={handleField}
-                    placeholder="12.345.678-9" required className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">Email *</label>
-                  <input type="email" name="boleta_email" value={form.boleta_email} onChange={handleField}
-                    placeholder="tu@correo.cl" required className="input-field" />
-                </div>
-              </div>
-            )}
+              {docType === 'Boleta' && (
+                <MotionDiv key="boleta"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="space-y-3 border-t border-[#d2d2d7] dark:border-white/[0.07] pt-4 overflow-hidden">
+                  <div>
+                    <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">Nombre completo *</label>
+                    <input name="boleta_full_name" value={form.boleta_full_name} onChange={handleField}
+                      placeholder="Juan Pérez González" required className="input-field" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">RUT *</label>
+                    <input name="boleta_rut" value={form.boleta_rut} onChange={handleField}
+                      placeholder="12.345.678-9" required className="input-field" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-[#6e6e73] dark:text-white/50 mb-1">Email *</label>
+                    <input type="email" name="boleta_email" value={form.boleta_email} onChange={handleField}
+                      placeholder="tu@correo.cl" required className="input-field" />
+                  </div>
+                </MotionDiv>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Dirección de envío */}
@@ -347,20 +377,27 @@ export default function CheckoutPage() {
               <p className="text-xs text-red-600 dark:text-red-400">{shippingError}</p>
             )}
 
-            {shippingQuote && (
-              <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-500/10
+            <AnimatePresence>
+              {shippingQuote && (
+                <MotionDiv
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-500/10
                               border border-emerald-200 dark:border-emerald-500/20 rounded-xl px-4 py-3">
-                <div>
-                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-                    {shippingQuote.service_name}
+                  <div>
+                    <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                      {shippingQuote.service_name}
+                    </p>
+                    <p className="text-xs text-[#6e6e73] dark:text-white/40">{shippingQuote.days_estimate}</p>
+                  </div>
+                  <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                    ${shippingQuote.price_clp.toLocaleString('es-CL')} CLP
                   </p>
-                  <p className="text-xs text-[#6e6e73] dark:text-white/40">{shippingQuote.days_estimate}</p>
-                </div>
-                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
-                  ${shippingQuote.price_clp.toLocaleString('es-CL')} CLP
-                </p>
-              </div>
-            )}
+                </MotionDiv>
+              )}
+            </AnimatePresence>
           </div>
 
           {error && (
@@ -458,6 +495,6 @@ export default function CheckoutPage() {
           </div>
         </div>
       </form>
-    </div>
+    </MotionDiv>
   )
 }
