@@ -89,6 +89,7 @@ def _apply_schema_migrations():
         "ALTER TABLE products ADD COLUMN height_cm           NUMERIC(8,2)",
         "ALTER TABLE products ADD COLUMN width_cm            NUMERIC(8,2)",
         "ALTER TABLE products ADD COLUMN length_cm           NUMERIC(8,2)",
+        "ALTER TABLE orders   ADD COLUMN is_quote            BOOLEAN DEFAULT 0",
     ]
     with engine.connect() as conn:
         for sql in migrations:

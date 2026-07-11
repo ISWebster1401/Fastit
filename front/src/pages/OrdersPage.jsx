@@ -86,6 +86,11 @@ export default function OrdersPage() {
                   }`}>
                     {STATUS_LABELS[order.status] || order.status}
                   </span>
+                  {order.is_quote && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-800 dark:bg-cyan-500/20 dark:text-cyan-300">
+                      Cotización
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-4 text-xs text-[#6e6e73] dark:text-white/40">
                   <span>{order.document_type}</span>

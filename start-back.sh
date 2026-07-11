@@ -4,6 +4,8 @@ set -eo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACK_DIR="$ROOT_DIR/back"
 
+bash "$ROOT_DIR/fix-symlinks.sh"
+
 BACK_HOST="${BACK_HOST:-127.0.0.1}"
 BACK_PORT="${BACK_PORT:-8000}"
 BACK_RELOAD="${BACK_RELOAD:-0}"

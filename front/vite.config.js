@@ -15,8 +15,12 @@ export default defineConfig({
     port: parseInt(process.env.FRONT_PORT ?? '5174'),
     host: '127.0.0.1',
     proxy: {
+      // 127.0.0.1 explícito (no "localhost"): si algún otro proceso local
+      // (p.ej. un contenedor Docker de otro proyecto) escucha el mismo
+      // puerto por IPv6, "localhost" puede resolver ahí y el proxy le
+      // pega al servicio equivocado con un "socket hang up" confuso.
       '/api': {
-        target: `http://localhost:${process.env.BACK_PORT ?? '8000'}`,
+        target: `http://127.0.0.1:${process.env.BACK_PORT ?? '8000'}`,
         changeOrigin: true,
       },
     },

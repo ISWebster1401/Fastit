@@ -38,6 +38,17 @@ def reset_db():
     Base.metadata.drop_all(bind=engine)
 
 
+@pytest.fixture(autouse=True)
+def _no_real_emails(monkeypatch):
+    """
+    Los tests NUNCA deben golpear SendGrid de verdad, incluso si SENDGRID_API_KEY
+    está seteada en el .env local (ya nos quemó la cuota una vez). Se mockea
+    `_send` a nivel de módulo para todos los tests sin excepción; tests
+    puntuales pueden sobreescribir este mock si necesitan inspeccionar llamadas.
+    """
+    monkeypatch.setattr("app.services.email_service._send", lambda *a, **k: False)
+
+
 @pytest.fixture
 def db():
     db = TestSessionLocal()

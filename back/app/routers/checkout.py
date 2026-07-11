@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -7,7 +9,9 @@ from app.models.product import Product
 from app.schemas.order import CheckoutRequest, OrderOut
 from app.services.auth_service import get_current_user
 from app.services.exchange_rate_service import get_usd_to_clp
+from app.services import email_service
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/checkout", tags=["Checkout"])
 
 
@@ -40,6 +44,7 @@ def checkout(
         total_amount              = total_clp,          # siempre en CLP
         exchange_rate_used        = rate.rate,
         status                    = OrderStatus.pending,
+        is_quote                  = payload.request_quote,
         document_type             = payload.document_type,
         invoice_rut               = payload.invoice_rut,
         invoice_business_name     = payload.invoice_business_name,
@@ -65,4 +70,13 @@ def checkout(
 
     db.commit()
     db.refresh(order)
+
+    try:
+        if order.is_quote:
+            email_service.send_quote_request_email(current_user.email, order.id, float(order.total_amount))
+        else:
+            email_service.send_order_status_email(current_user.email, order.id, order.status.value, float(order.total_amount))
+    except Exception:
+        logger.exception("No se pudo enviar el correo de confirmación de la orden %s", order.id)
+
     return order

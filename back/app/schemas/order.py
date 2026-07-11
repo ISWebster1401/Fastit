@@ -36,6 +36,10 @@ class CheckoutRequest(BaseModel):
     shipping_region : Optional[str] = None
     shipping_cost   : Optional[float] = 0
 
+    # RFQ: si es true, la orden queda marcada como cotización (no dispara pago
+    # ni orden de compra al proveedor) en vez de checkout normal.
+    request_quote: bool = False
+
     @model_validator(mode="after")
     def validate_document_fields(self):
         if self.document_type == DocumentType.factura:
@@ -68,6 +72,7 @@ class OrderOut(BaseModel):
     total_amount             : float
     status                   : OrderStatus
     document_type            : DocumentType
+    is_quote                 : Optional[bool] = False
     created_at               : Optional[datetime] = None
     invoice_rut              : Optional[str] = None
     invoice_business_name    : Optional[str] = None

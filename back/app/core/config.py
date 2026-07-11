@@ -39,6 +39,9 @@ class Settings:
     # Render: definir SENDGRID_API_KEY y SENDGRID_FROM_EMAIL (remitente verificado en SendGrid).
     SENDGRID_API_KEY: str = ""
     SENDGRID_FROM_EMAIL: str = "noreply@fastit.cl"
+    # Si se define, recibe una notificación interna cada vez que un cliente
+    # solicita una cotización (RFQ) desde el checkout.
+    SALES_NOTIFICATION_EMAIL: str = ""
     # Chilexpress expone 3 APIs y cada una tiene su propia subscription key.
     # CHILEXPRESS_API_KEY queda como fallback genérico si solo se define una.
     CHILEXPRESS_API_KEY: str = ""
@@ -87,6 +90,7 @@ def _build_settings() -> Settings:
         FLOW_CLP_RATE=float(os.getenv("FLOW_CLP_RATE", "970")),
         SENDGRID_API_KEY=os.getenv("SENDGRID_API_KEY", ""),
         SENDGRID_FROM_EMAIL=os.getenv("SENDGRID_FROM_EMAIL", "noreply@fastit.cl"),
+        SALES_NOTIFICATION_EMAIL=os.getenv("SALES_NOTIFICATION_EMAIL", ""),
         CHILEXPRESS_API_KEY=os.getenv("CHILEXPRESS_API_KEY", ""),
         CHILEXPRESS_API_KEY_COTIZADOR=os.getenv("CHILEXPRESS_API_KEY_COTIZADOR", ""),
         CHILEXPRESS_API_KEY_ENVIOS=os.getenv("CHILEXPRESS_API_KEY_ENVIOS", ""),
