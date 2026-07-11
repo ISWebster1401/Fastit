@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import FilterSidebar from '../components/catalog/FilterSidebar'
 import ProductCard   from '../components/catalog/ProductCard'
 import { getProducts } from '../api/client'
 import { useAuthStore } from '../store/cartStore'
+import { fadeUp, stagger, revealProps } from '../lib/motion'
+
+const MotionDiv = motion.div
 
 export default function CatalogPage() {
   const user            = useAuthStore(s => s.user)
@@ -33,8 +37,12 @@ export default function CatalogPage() {
       {/* Hero — solo para usuarios no autenticados */}
       {!user && (
         <div className="bg-gradient-to-b from-[#f5f9ff] to-white dark:from-[#04080f] dark:to-[#0a1120] border-b border-[#e2e8f0] dark:border-white/[0.06]">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-14 flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="max-w-xl">
+          <MotionDiv
+            {...revealProps}
+            variants={stagger}
+            className="max-w-7xl mx-auto px-4 sm:px-6 py-14 flex flex-col md:flex-row items-center justify-between gap-8"
+          >
+            <MotionDiv variants={fadeUp} className="max-w-xl">
               <p className="text-xs font-semibold text-[#1e40af] dark:text-blue-400 uppercase tracking-widest mb-3">
                 Hardware crítico, asesoría experta
               </p>
@@ -55,10 +63,10 @@ export default function CatalogPage() {
                   Ver catálogo
                 </a>
               </div>
-            </div>
+            </MotionDiv>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 gap-4 shrink-0">
+            <MotionDiv variants={fadeUp} className="grid grid-cols-2 gap-4 shrink-0">
               {[
                 { value: '+500', label: 'Productos' },
                 { value: 'Stock', label: 'En tiempo real' },
@@ -70,8 +78,8 @@ export default function CatalogPage() {
                   <p className="text-xs text-[#64748b] dark:text-white/40 mt-0.5">{label}</p>
                 </div>
               ))}
-            </div>
-          </div>
+            </MotionDiv>
+          </MotionDiv>
         </div>
       )}
 
@@ -134,11 +142,18 @@ export default function CatalogPage() {
                 <p className="text-xs text-[#64748b] mb-4">
                   {products.length} producto{products.length !== 1 ? 's' : ''} encontrado{products.length !== 1 ? 's' : ''}
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <MotionDiv
+                  key={`${filters.category}-${filters.brand}`}
+                  {...revealProps}
+                  variants={stagger}
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+                >
                   {products.map(p => (
-                    <ProductCard key={p.id} product={p} />
+                    <motion.div key={p.id} variants={fadeUp}>
+                      <ProductCard product={p} />
+                    </motion.div>
                   ))}
-                </div>
+                </MotionDiv>
               </>
             )}
           </div>

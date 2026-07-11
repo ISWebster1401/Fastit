@@ -1,6 +1,10 @@
 import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { useCartStore } from '../../store/cartStore'
 import { formatUSD } from '../../store/currencyStore'
+import { springHover } from '../../lib/motion'
+
+const MotionDiv = motion.div
 
 const STOCK_LABELS = {
   available:    'Disponible',
@@ -58,14 +62,16 @@ export default function ProductCard({ product }) {
   const isOOS   = product.stock_status === 'out_of_stock'
 
   return (
-    <div className="flex flex-col
+    <MotionDiv
+      whileHover={{ y: -4 }}
+      transition={springHover}
+      className="flex flex-col
                     bg-white dark:bg-[#0d1525]
                     border border-[#e2e8f0] dark:border-white/[0.07]
                     rounded-2xl overflow-hidden shadow-sm dark:shadow-none
                     hover:shadow-md dark:hover:shadow-none
-                    hover:-translate-y-0.5
                     hover:border-[#cbd5e1] dark:hover:border-white/20
-                    transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] group">
+                    transition-colors duration-300 group">
 
       {/* Top row: category + badge */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
@@ -136,6 +142,6 @@ export default function ProductCard({ product }) {
         </div>
       </div>
 
-    </div>
+    </MotionDiv>
   )
 }

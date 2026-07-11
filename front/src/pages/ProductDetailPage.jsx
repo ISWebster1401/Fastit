@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import SpecsTable        from '../components/product/SpecsTable'
 import WorkstationExplorer from '../components/product/WorkstationExplorer'
 import ScrollAssembly    from '../components/product/ScrollAssembly'
 import { getProduct }    from '../api/client'
 import { useCartStore }  from '../store/cartStore'
 import { formatUSD }    from '../store/currencyStore'
+import { fadeUp, stagger, revealProps } from '../lib/motion'
+
+const MotionDiv = motion.div
 
 const STOCK_LABELS = {
   available:    'Disponible',
@@ -66,9 +70,9 @@ export default function ProductDetailPage() {
           <span className="text-[#1d1d1f] dark:text-white font-medium">{product.sku}</span>
         </nav>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <MotionDiv {...revealProps} variants={stagger} className="grid md:grid-cols-3 gap-6">
           {/* Info principal */}
-          <div className="md:col-span-2 space-y-4">
+          <motion.div variants={fadeUp} className="md:col-span-2 space-y-4">
             <div className="card p-6">
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
@@ -98,10 +102,10 @@ export default function ProductDetailPage() {
                 <span>Desplázate hacia abajo para desarmar este producto en sus componentes</span>
               </div>
             )}
-          </div>
+          </motion.div>
 
           {/* Panel de compra */}
-          <div className="space-y-4">
+          <motion.div variants={fadeUp} className="space-y-4">
             <div className="card p-5 space-y-4">
               <div>
                 <p className="text-xs text-[#6e6e73] dark:text-white/40 mb-1">Precio neto</p>
@@ -133,8 +137,8 @@ export default function ProductDetailPage() {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </MotionDiv>
       </div>
 
       {/* ── Scroll animation full-bleed ────────────────────────────────────── */}
@@ -153,7 +157,7 @@ export default function ProductDetailPage() {
 
         {/* Explorador de componentes — workstations */}
         {product.components?.length > 0 && (
-          <div className="rounded-2xl overflow-hidden"
+          <MotionDiv {...revealProps} variants={fadeUp} className="rounded-2xl overflow-hidden"
                style={{ background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(4,8,15,0.98))', border: '1px solid rgba(255,255,255,0.07)' }}>
             <div className="px-6 pt-6 pb-3">
               <div className="flex items-center gap-2 mb-2">
@@ -166,11 +170,11 @@ export default function ProductDetailPage() {
             <div className="px-6 pb-8">
               <WorkstationExplorer components={product.components} />
             </div>
-          </div>
+          </MotionDiv>
         )}
 
         {/* Especificaciones técnicas */}
-        <div className="card overflow-hidden">
+        <MotionDiv {...revealProps} variants={fadeUp} className="card overflow-hidden">
           <div className="bg-[#f5f5f7] dark:bg-white/[0.04] border-b border-[#d2d2d7] dark:border-white/[0.07] px-4 py-3">
             <h2 className="text-xs font-semibold text-[#6e6e73] dark:text-white/40 uppercase tracking-widest">
               Especificaciones Técnicas
@@ -179,7 +183,7 @@ export default function ProductDetailPage() {
           <div className="p-4">
             <SpecsTable specs={product.technical_specs} />
           </div>
-        </div>
+        </MotionDiv>
 
       </div>
     </>
