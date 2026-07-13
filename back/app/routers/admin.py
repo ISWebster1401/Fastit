@@ -52,15 +52,18 @@ def get_stats(
     db: Session = Depends(get_db),
     _=Depends(require_admin),
 ):
-    total_orders    = db.query(func.count(Order.id)).scalar() or 0
-    total_revenue   = float(db.query(func.sum(Order.total_amount)).scalar() or 0)
-    pending_count   = db.query(func.count(Order.id)).filter(Order.status == OrderStatus.pending).scalar() or 0
-    delivered_count = db.query(func.count(Order.id)).filter(Order.status == OrderStatus.delivered).scalar() or 0
+    # Las cotizaciones (is_quote=True) nunca se pagan: no cuentan como revenue real.
+    total_orders    = db.query(func.count(Order.id)).filter(Order.is_quote.isnot(True)).scalar() or 0
+    total_revenue   = float(db.query(func.sum(Order.total_amount)).filter(Order.is_quote.isnot(True)).scalar() or 0)
+    pending_count   = db.query(func.count(Order.id)).filter(Order.status == OrderStatus.pending, Order.is_quote.isnot(True)).scalar() or 0
+    delivered_count = db.query(func.count(Order.id)).filter(Order.status == OrderStatus.delivered, Order.is_quote.isnot(True)).scalar() or 0
+    quote_count     = db.query(func.count(Order.id)).filter(Order.is_quote.is_(True)).scalar() or 0
     total_users     = db.query(func.count(User.id)).filter(User.is_active == True).scalar() or 0
     verified_users  = db.query(func.count(User.id)).filter(User.email_verified == True, User.is_active == True).scalar() or 0
+    avg_order_value = round(total_revenue / total_orders, 2) if total_orders else 0.0
 
     by_status = {
-        s.value: db.query(func.count(Order.id)).filter(Order.status == s).scalar() or 0
+        s.value: db.query(func.count(Order.id)).filter(Order.status == s, Order.is_quote.isnot(True)).scalar() or 0
         for s in OrderStatus
     }
 
@@ -69,6 +72,8 @@ def get_stats(
         "total_revenue":   total_revenue,
         "pending_count":   pending_count,
         "delivered_count": delivered_count,
+        "quote_count":     quote_count,
+        "avg_order_value": avg_order_value,
         "total_users":     total_users,
         "verified_users":  verified_users,
         "by_status":       by_status,
@@ -88,7 +93,7 @@ def get_timeline(
             func.count(Order.id).label("orders"),
             func.sum(Order.total_amount).label("revenue"),
         )
-        .filter(Order.created_at >= since)
+        .filter(Order.created_at >= since, Order.is_quote.isnot(True))
         .group_by(func.date(Order.created_at))
         .order_by(func.date(Order.created_at))
         .all()
@@ -100,6 +105,77 @@ def get_timeline(
         entry = result_map.get(day, {"orders": 0, "revenue": 0.0})
         timeline.append({"date": day, **entry})
     return {"days": days, "timeline": timeline}
+
+
+@router.get("/stats/top-products")
+def get_top_products(
+    limit: int = Query(default=5, ge=1, le=20),
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """Productos con más revenue (excluye cotizaciones — nunca se pagaron)."""
+    rows = (
+        db.query(
+            Product.id,
+            Product.sku,
+            Product.name,
+            Product.brand,
+            func.sum(OrderItem.quantity).label("units_sold"),
+            func.sum(OrderItem.quantity * OrderItem.unit_price).label("revenue"),
+        )
+        .join(OrderItem, OrderItem.product_id == Product.id)
+        .join(Order, Order.id == OrderItem.order_id)
+        .filter(Order.is_quote.isnot(True))
+        .group_by(Product.id)
+        .order_by(func.sum(OrderItem.quantity * OrderItem.unit_price).desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id":         r.id,
+            "sku":        r.sku,
+            "name":       r.name,
+            "brand":      r.brand,
+            "units_sold": int(r.units_sold or 0),
+            "revenue":    float(r.revenue or 0),
+        }
+        for r in rows
+    ]
+
+
+@router.get("/stats/top-customers")
+def get_top_customers(
+    limit: int = Query(default=5, ge=1, le=20),
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """Clientes con más gasto acumulado (excluye cotizaciones — nunca se pagaron)."""
+    rows = (
+        db.query(
+            User.id,
+            User.email,
+            User.business_name,
+            func.count(Order.id).label("order_count"),
+            func.sum(Order.total_amount).label("total_spent"),
+        )
+        .join(Order, Order.user_id == User.id)
+        .filter(Order.is_quote.isnot(True))
+        .group_by(User.id)
+        .order_by(func.sum(Order.total_amount).desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id":            r.id,
+            "email":         r.email,
+            "business_name": r.business_name,
+            "order_count":   int(r.order_count or 0),
+            "total_spent":   float(r.total_spent or 0),
+        }
+        for r in rows
+    ]
 
 
 # ─── Órdenes ──────────────────────────────────────────────────────────────────

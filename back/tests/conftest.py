@@ -186,3 +186,26 @@ def pending_order(db, regular_user, server_product):
     db.commit()
     db.refresh(order)
     return order
+
+
+@pytest.fixture
+def quote_order(db, regular_user, storage_product):
+    """Cotización (RFQ): nunca se paga, no debe contar como revenue."""
+    order = Order(
+        user_id=regular_user.id,
+        total_amount=12200.00,
+        status=OrderStatus.pending,
+        document_type=DocumentType.boleta,
+        is_quote=True,
+    )
+    db.add(order)
+    db.flush()
+    db.add(OrderItem(
+        order_id=order.id,
+        product_id=storage_product.id,
+        quantity=1,
+        unit_price=12200.00,
+    ))
+    db.commit()
+    db.refresh(order)
+    return order
