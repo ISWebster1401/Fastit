@@ -9,7 +9,9 @@ import {
   adminGetUsers, adminDeleteUser, adminToggleActive,
   adminGetProducts, adminDeleteProduct, adminImportPreview, adminImportConfirm,
   adminSupplierList, adminSupplierImportPreview,
+  adminGetTopProducts, adminGetTopCustomers,
 } from '../api/client'
+import { formatUSD } from '../store/currencyStore'
 
 // ─── Constantes de estado ──────────────────────────────────────────────────────
 
@@ -39,6 +41,8 @@ export default function AdminPage() {
   const [orders,       setOrders]       = useState([])
   const [stats,        setStats]        = useState(null)
   const [timeline,     setTimeline]     = useState(null)
+  const [topProducts,  setTopProducts]  = useState(null)
+  const [topCustomers, setTopCustomers] = useState(null)
   const [loading,      setLoading]      = useState(true)
   const [error,        setError]        = useState(null)
   const [search,       setSearch]       = useState('')
@@ -56,8 +60,14 @@ export default function AdminPage() {
 
   const load = () => {
     setLoading(true)
-    Promise.all([adminGetOrders(), adminGetStats(), adminGetTimeline(timelineDays)])
-      .then(([o, s, t]) => { setOrders(o); setStats(s); setTimeline(t) })
+    Promise.all([
+      adminGetOrders(), adminGetStats(), adminGetTimeline(timelineDays),
+      adminGetTopProducts(), adminGetTopCustomers(),
+    ])
+      .then(([o, s, t, tp, tc]) => {
+        setOrders(o); setStats(s); setTimeline(t)
+        setTopProducts(tp); setTopCustomers(tc)
+      })
       .catch(() => setError('No se pudieron cargar los datos.'))
       .finally(() => setLoading(false))
   }
@@ -180,11 +190,13 @@ export default function AdminPage() {
 
       {/* Stat cards */}
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <StatCard label="Total órdenes"  value={stats.total_orders}     icon={<ClipboardIcon/>}  color="text-[#1e40af] dark:text-blue-300"     bg="bg-[#e8f2ff] dark:bg-blue-500/20"     />
           <StatCard label="Pendientes"     value={stats.pending_count}    icon={<ClockIcon/>}       color="text-amber-600 dark:text-amber-300"    bg="bg-amber-50 dark:bg-amber-500/20"     />
           <StatCard label="Revenue (USD)"  value={`$${Math.round(stats.total_revenue).toLocaleString('en-US')}`} icon={<CurrencyIcon/>} color="text-emerald-600 dark:text-emerald-300" bg="bg-emerald-50 dark:bg-emerald-500/20" />
+          <StatCard label="Valor promedio" value={`$${Math.round(stats.avg_order_value).toLocaleString('en-US')}`} icon={<ScaleIcon/>} color="text-[#1e40af] dark:text-blue-300" bg="bg-[#e8f2ff] dark:bg-blue-500/20" />
           <StatCard label="Entregadas"     value={stats.delivered_count}  icon={<CheckCircleIcon/>} color="text-violet-600 dark:text-violet-300"   bg="bg-violet-50 dark:bg-violet-500/20"   />
+          <StatCard label="Cotizaciones"   value={stats.quote_count}      icon={<QuoteIcon/>}       color="text-cyan-700 dark:text-cyan-300"       bg="bg-cyan-50 dark:bg-cyan-500/20"       />
         </div>
       )}
 
@@ -323,6 +335,75 @@ export default function AdminPage() {
               ) : (
                 <div className="h-56 flex items-center justify-center text-[#94a3b8] text-sm">
                   Sin órdenes aún
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Productos más vendidos */}
+            <div className="card p-5">
+              <h2 className="font-semibold text-[#1d1d1f] dark:text-white text-sm mb-4">
+                Productos más vendidos
+              </h2>
+              {topProducts && topProducts.length > 0 ? (
+                <ul className="space-y-3">
+                  {topProducts.map((p, i) => {
+                    const maxRevenue = topProducts[0].revenue || 1
+                    return (
+                      <li key={p.id}>
+                        <div className="flex items-center justify-between gap-3 mb-1">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-[#1d1d1f] dark:text-white truncate">
+                              {i + 1}. {p.name}
+                            </p>
+                            <p className="text-xs text-[#86868b] dark:text-white/35 font-mono">{p.sku} · {p.units_sold} vendidos</p>
+                          </div>
+                          <span className="text-sm font-semibold text-[#1d1d1f] dark:text-white shrink-0">
+                            {formatUSD(p.revenue)}
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-[#f1f5f9] dark:bg-white/[0.06] overflow-hidden">
+                          <div className="h-full rounded-full bg-[#1e40af] dark:bg-blue-500"
+                               style={{ width: `${Math.max(4, (p.revenue / maxRevenue) * 100)}%` }}/>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <div className="h-40 flex items-center justify-center text-[#94a3b8] text-sm">
+                  Sin ventas aún
+                </div>
+              )}
+            </div>
+
+            {/* Mejores clientes */}
+            <div className="card p-5">
+              <h2 className="font-semibold text-[#1d1d1f] dark:text-white text-sm mb-4">
+                Mejores clientes
+              </h2>
+              {topCustomers && topCustomers.length > 0 ? (
+                <ul className="divide-y divide-[#e2e8f0] dark:divide-white/[0.06]">
+                  {topCustomers.map((c, i) => (
+                    <li key={c.id} className="py-2.5 flex items-center justify-between gap-3 first:pt-0 last:pb-0">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-[#1d1d1f] dark:text-white truncate">
+                          {i + 1}. {c.business_name || c.email}
+                        </p>
+                        <p className="text-xs text-[#86868b] dark:text-white/35">
+                          {c.order_count} orden{c.order_count !== 1 ? 'es' : ''}
+                        </p>
+                      </div>
+                      <span className="text-sm font-semibold text-[#1d1d1f] dark:text-white shrink-0">
+                        ${Math.round(c.total_spent).toLocaleString('es-CL')} CLP
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="h-40 flex items-center justify-center text-[#94a3b8] text-sm">
+                  Sin clientes con compras aún
                 </div>
               )}
             </div>
@@ -1740,3 +1821,5 @@ const ClipboardIcon  = () => <svg className="w-5 h-5" fill="none" stroke="curren
 const ClockIcon      = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
 const CurrencyIcon   = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
 const CheckCircleIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+const QuoteIcon      = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+const ScaleIcon      = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>

@@ -74,6 +74,88 @@ class TestAdminStats:
         assert data["pending_count"] == 1
         assert data["total_revenue"] == float(pending_order.total_amount)
 
+    def test_stats_avg_order_value(self, client, admin_token, pending_order):
+        res = client.get(
+            "/api/admin/stats",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        data = res.json()
+        assert data["avg_order_value"] == float(pending_order.total_amount)
+
+    def test_quotes_excluded_from_revenue(self, client, admin_token, pending_order, quote_order):
+        res = client.get(
+            "/api/admin/stats",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        data = res.json()
+        # Solo pending_order cuenta como revenue real; quote_order queda aparte.
+        assert data["total_orders"] == 1
+        assert data["total_revenue"] == float(pending_order.total_amount)
+        assert data["quote_count"] == 1
+
+    def test_quotes_dont_affect_by_status_counts(self, client, admin_token, quote_order):
+        res = client.get(
+            "/api/admin/stats",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        data = res.json()
+        assert data["by_status"]["Pending"] == 0
+
+
+class TestAdminTopProducts:
+    def test_top_products_excludes_quotes(self, client, admin_token, pending_order, quote_order):
+        res = client.get(
+            "/api/admin/stats/top-products",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert res.status_code == 200
+        products = res.json()
+        assert len(products) == 1
+        assert products[0]["units_sold"] == 1
+        assert products[0]["revenue"] == float(pending_order.total_amount)
+
+    def test_top_products_empty_without_orders(self, client, admin_token):
+        res = client.get(
+            "/api/admin/stats/top-products",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert res.json() == []
+
+    def test_top_products_requires_admin(self, client, user_token):
+        res = client.get(
+            "/api/admin/stats/top-products",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert res.status_code == 403
+
+
+class TestAdminTopCustomers:
+    def test_top_customers_excludes_quotes(self, client, admin_token, regular_user, pending_order, quote_order):
+        res = client.get(
+            "/api/admin/stats/top-customers",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert res.status_code == 200
+        customers = res.json()
+        assert len(customers) == 1
+        assert customers[0]["id"] == regular_user.id
+        assert customers[0]["order_count"] == 1
+        assert customers[0]["total_spent"] == float(pending_order.total_amount)
+
+    def test_top_customers_empty_without_orders(self, client, admin_token):
+        res = client.get(
+            "/api/admin/stats/top-customers",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert res.json() == []
+
+    def test_top_customers_requires_admin(self, client, user_token):
+        res = client.get(
+            "/api/admin/stats/top-customers",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert res.status_code == 403
+
 
 class TestAdminOrders:
     def test_list_all_orders(self, client, admin_token, pending_order):

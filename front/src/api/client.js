@@ -94,6 +94,12 @@ export const adminGetOrders    = () =>
 export const adminGetStats     = () =>
   api.get('/admin/stats').then(r => r.data)
 
+export const adminGetTopProducts  = (limit = 5) =>
+  api.get('/admin/stats/top-products', { params: { limit } }).then(r => r.data)
+
+export const adminGetTopCustomers = (limit = 5) =>
+  api.get('/admin/stats/top-customers', { params: { limit } }).then(r => r.data)
+
 export const adminUpdateStatus = (orderId, status) =>
   api.patch(`/admin/orders/${orderId}/status`, { status }).then(r => r.data)
 
