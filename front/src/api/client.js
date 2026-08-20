@@ -91,17 +91,54 @@ export const advisorNextQuestion = (category, answers) =>
 export const adminGetOrders    = () =>
   api.get('/admin/orders').then(r => r.data)
 
-export const adminGetStats     = () =>
-  api.get('/admin/stats').then(r => r.data)
+export const adminGetStats = ({ startDate, endDate, includeQuotes } = {}) =>
+  api.get('/admin/stats', {
+    params: {
+      start_date: startDate,
+      end_date: endDate,
+      include_quotes: includeQuotes,
+    }
+  }).then(r => r.data)
 
-export const adminGetTopProducts  = (limit = 5) =>
-  api.get('/admin/stats/top-products', { params: { limit } }).then(r => r.data)
+export const adminGetTopProducts = (limit = 5, { startDate, endDate } = {}) =>
+  api.get('/admin/stats/top-products', { params: { limit, start_date: startDate, end_date: endDate } }).then(r => r.data)
 
-export const adminGetTopCustomers = (limit = 5) =>
-  api.get('/admin/stats/top-customers', { params: { limit } }).then(r => r.data)
+export const adminGetTopCustomers = (limit = 5, { startDate, endDate } = {}) =>
+  api.get('/admin/stats/top-customers', { params: { limit, start_date: startDate, end_date: endDate } }).then(r => r.data)
 
 export const adminUpdateStatus = (orderId, status) =>
   api.patch(`/admin/orders/${orderId}/status`, { status }).then(r => r.data)
+
+export const adminGetTimelineDetailed = ({ days, startDate, endDate, includeQuotes } = {}) =>
+  api.get('/admin/stats/timeline', {
+    params: {
+      days,
+      start_date: startDate,
+      end_date: endDate,
+      include_quotes: includeQuotes,
+    }
+  }).then(r => r.data)
+
+export const adminSearchOrders = ({
+  page = 1,
+  pageSize = 30,
+  search = '',
+  status = 'all',
+  isQuote = null,
+  startDate,
+  endDate,
+} = {}) =>
+  api.get('/admin/orders/search', {
+    params: {
+      page,
+      page_size: pageSize,
+      search,
+      status,
+      is_quote: isQuote,
+      start_date: startDate,
+      end_date: endDate,
+    }
+  }).then(r => r.data)
 
 // ─── Admin Products ───────────────────────────────────────────────────────────
 

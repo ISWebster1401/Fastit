@@ -96,3 +96,11 @@ class PaymentWebhookPayload(BaseModel):
     order_id      : int
     payment_status: str
     transaction_id: str
+
+
+class OrdersSearchOut(BaseModel):
+    items: list[OrderOut]
+    total: int
+    page: int
+    page_size: int
+
