@@ -58,3 +58,53 @@ class TestGetProductBySku:
         res = client.get(f"/api/products/{server_product.sku}")
         assert "stock_status" in res.json()
         assert res.json()["stock_status"] == "available"
+
+
+class TestCreateProduct:
+    """POST /api/products — requiere admin (antes estaba sin auth, hueco de seguridad)."""
+
+    def test_requires_auth(self, client):
+        res = client.post("/api/products", json={
+            "sku": "MANUAL-001", "name": "Producto manual", "brand": "GenBrand",
+            "category": "servers", "base_price": 100.0,
+        })
+        assert res.status_code == 403
+
+    def test_regular_user_cannot_create(self, client, user_token):
+        res = client.post(
+            "/api/products",
+            headers={"Authorization": f"Bearer {user_token}"},
+            json={
+                "sku": "MANUAL-001", "name": "Producto manual", "brand": "GenBrand",
+                "category": "servers", "base_price": 100.0,
+            },
+        )
+        assert res.status_code == 403
+
+    def test_admin_can_create_manual_product(self, client, admin_token):
+        res = client.post(
+            "/api/products",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json={
+                "sku": "MANUAL-001", "name": "Producto manual", "brand": "GenBrand",
+                "category": "servers", "base_price": 100.0,
+                "technical_specs": {"RAM": "32GB"}, "stock_status": "available",
+            },
+        )
+        assert res.status_code == 201
+        data = res.json()
+        assert data["sku"] == "MANUAL-001"
+        assert data["source"] == "manual"
+        assert "base_price" not in data  # nunca se expone al cliente
+        assert data["public_price"] == 118.0  # 100 * (1 + margen servers 18%)
+
+    def test_duplicate_sku_rejected(self, client, admin_token, server_product):
+        res = client.post(
+            "/api/products",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json={
+                "sku": server_product.sku, "name": "Duplicado", "brand": "X",
+                "category": "servers", "base_price": 100.0,
+            },
+        )
+        assert res.status_code == 409

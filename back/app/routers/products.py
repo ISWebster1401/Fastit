@@ -5,6 +5,7 @@ from typing import Optional
 from app.database import get_db
 from app.models.product import Product
 from app.schemas.product import ProductPublic, ProductDetail, ProductCreate
+from app.services.auth_service import require_admin
 from app.services.pricing import calculate_public_price
 
 router = APIRouter(prefix="/api/products", tags=["Products"])
@@ -33,7 +34,11 @@ def get_product(sku: str, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=ProductPublic, status_code=201)
-def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
+def create_product(
+    payload: ProductCreate,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
     existing = db.query(Product).filter(Product.sku == payload.sku).first()
     if existing:
         raise HTTPException(status_code=409, detail=f"SKU '{payload.sku}' ya existe")
