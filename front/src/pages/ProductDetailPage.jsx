@@ -3,7 +3,6 @@ import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import SpecsTable        from '../components/product/SpecsTable'
 import WorkstationExplorer from '../components/product/WorkstationExplorer'
-import ScrollAssembly    from '../components/product/ScrollAssembly'
 import { getProduct }    from '../api/client'
 import { useCartStore }  from '../store/cartStore'
 import { formatUSD }    from '../store/currencyStore'
@@ -16,13 +15,6 @@ const STOCK_LABELS = {
   low_stock:    'Stock bajo',
   out_of_stock: 'Sin stock',
   on_request:   'A pedido',
-}
-
-// Mapea SKU → carpeta de frames (en /public/frames/)
-// Añadir aquí cada producto que tenga frames de scroll
-// 720×1280 · 24fps · 8s · 192 frames
-const SCROLL_FRAMES_MAP = {
-  'DELL-PREC-7960-WS1': { frameCount: 192, ext: 'jpg', labelStart: 'Ensamblado.', labelEnd: 'Desarmado.' },
 }
 
 export default function ProductDetailPage() {
@@ -54,8 +46,6 @@ export default function ProductDetailPage() {
       <Link to="/catalog" className="btn-secondary">Volver al catálogo</Link>
     </div>
   )
-
-  const scrollConfig = SCROLL_FRAMES_MAP[product.sku]
 
   return (
     <>
@@ -90,18 +80,6 @@ export default function ProductDetailPage() {
                 </p>
               )}
             </div>
-
-            {/* Hint de scroll si hay frames */}
-            {scrollConfig && (
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-blue-500/20
-                              bg-blue-500/[0.06] text-blue-400 text-xs">
-                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                    d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/>
-                </svg>
-                <span>Desplázate hacia abajo para desarmar este producto en sus componentes</span>
-              </div>
-            )}
           </motion.div>
 
           {/* Panel de compra */}
@@ -140,17 +118,6 @@ export default function ProductDetailPage() {
           </motion.div>
         </MotionDiv>
       </div>
-
-      {/* ── Scroll animation full-bleed ────────────────────────────────────── */}
-      {scrollConfig && (
-        <ScrollAssembly
-          framesPath={`/frames/${product.sku}`}
-          frameCount={scrollConfig.frameCount}
-          ext={scrollConfig.ext ?? 'webp'}
-          labelStart={scrollConfig.labelStart}
-          labelEnd={scrollConfig.labelEnd}
-        />
-      )}
 
       {/* ── Sección inferior: componentes + specs ──────────────────────────── */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-16 space-y-8">
