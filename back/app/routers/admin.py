@@ -3,21 +3,22 @@ import logging
 import os
 import shutil
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date, time as dt_time
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy import func, or_
+from sqlalchemy.orm import Session, joinedload, selectinload
 from pydantic import BaseModel
 
 from app.database import get_db
 from app.models.order import Order, OrderItem, OrderStatus
 from app.models.product import Product
 from app.models.user import User
-from app.schemas.order import OrderOut
+from app.models.customer_spend_tier import CustomerSpendTier
+from app.schemas.order import OrderOut, OrdersSearchOut
 from app.schemas.product import IcecatPreviewOut, IcecatImportConfirm
 from app.services.auth_service import require_admin
 from app.services.icecat_service import get_provider, map_to_internal, parse_icecat_url
@@ -45,66 +46,268 @@ class UserAdminOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+def _usd_total_expr():
+    """
+    Transforma el total guardado en CLP a USD equivalente usando el tipo de cambio
+    snapshot del momento de la compra (`exchange_rate_used`).
+    """
+    return Order.total_amount / func.coalesce(Order.exchange_rate_used, 1)
+
+
+def _get_date_range(start_date: Optional[date], end_date: Optional[date]) -> Optional[tuple[datetime, datetime]]:
+    if start_date is None and end_date is None:
+        return None
+    if start_date is None or end_date is None:
+        raise HTTPException(
+            status_code=422,
+            detail="start_date y end_date deben enviarse juntos (o ninguno).",
+        )
+    if end_date < start_date:
+        raise HTTPException(status_code=422, detail="end_date debe ser >= start_date.")
+
+    since = datetime.combine(start_date, dt_time.min).replace(tzinfo=timezone.utc)
+    until = datetime.combine(end_date, dt_time.max).replace(tzinfo=timezone.utc)
+    return since, until
+
+
+def _ensure_default_customer_spend_tiers(db: Session) -> list[CustomerSpendTier]:
+    tiers = (
+        db.query(CustomerSpendTier)
+        .order_by(CustomerSpendTier.display_order.asc())
+        .all()
+    )
+    if tiers:
+        return tiers
+
+    defaults = [
+        {"name": "Bronze", "min_spent_usd": 0, "color_hex": "#94a3b8", "display_order": 1},
+        {"name": "Silver", "min_spent_usd": 5000, "color_hex": "#60a5fa", "display_order": 2},
+        {"name": "Gold", "min_spent_usd": 20000, "color_hex": "#fbbf24", "display_order": 3},
+        {"name": "Platinum", "min_spent_usd": 50000, "color_hex": "#10b981", "display_order": 4},
+    ]
+
+    db.add_all([CustomerSpendTier(**d) for d in defaults])
+    db.commit()
+
+    return (
+        db.query(CustomerSpendTier)
+        .order_by(CustomerSpendTier.display_order.asc())
+        .all()
+    )
+
+
+def _select_tier_for_spent_usd(tiers: list[CustomerSpendTier], spent_usd: float) -> CustomerSpendTier:
+    """
+    Devuelve el mejor tier cuyo `min_spent_usd` sea <= spent_usd.
+    """
+    best = tiers[0]
+    for t in sorted(tiers, key=lambda x: float(x.min_spent_usd)):
+        if spent_usd >= float(t.min_spent_usd):
+            best = t
+    return best
+
+
 # ─── Stats ────────────────────────────────────────────────────────────────────
 
 @router.get("/stats")
 def get_stats(
     db: Session = Depends(get_db),
     _=Depends(require_admin),
+    start_date: Optional[date] = Query(default=None),
+    end_date: Optional[date] = Query(default=None),
+    include_quotes: bool = Query(default=False),
 ):
-    # Las cotizaciones (is_quote=True) nunca se pagan: no cuentan como revenue real.
-    total_orders    = db.query(func.count(Order.id)).filter(Order.is_quote.isnot(True)).scalar() or 0
-    total_revenue   = float(db.query(func.sum(Order.total_amount)).filter(Order.is_quote.isnot(True)).scalar() or 0)
-    pending_count   = db.query(func.count(Order.id)).filter(Order.status == OrderStatus.pending, Order.is_quote.isnot(True)).scalar() or 0
-    delivered_count = db.query(func.count(Order.id)).filter(Order.status == OrderStatus.delivered, Order.is_quote.isnot(True)).scalar() or 0
-    quote_count     = db.query(func.count(Order.id)).filter(Order.is_quote.is_(True)).scalar() or 0
+    date_range = _get_date_range(start_date, end_date)
+
+    # Las cotizaciones (is_quote=True) nunca se pagan: no cuentan como revenue real,
+    # pero sí deben existir en gráficos cuando `include_quotes=true`.
+    paid_filter = Order.is_quote.isnot(True)
+    quote_filter = Order.is_quote.is_(True)
+
+    q_paid = db.query(Order).filter(paid_filter)
+    q_quotes = db.query(Order).filter(quote_filter)
+    if date_range:
+        since, until = date_range
+        q_paid = q_paid.filter(Order.created_at >= since, Order.created_at <= until)
+        q_quotes = q_quotes.filter(Order.created_at >= since, Order.created_at <= until)
+
+    total_orders = q_paid.with_entities(func.count(Order.id)).scalar() or 0
+    total_revenue = float(q_paid.with_entities(func.sum(_usd_total_expr())).scalar() or 0)
+    pending_count = (
+        q_paid.filter(Order.status == OrderStatus.pending)
+        .with_entities(func.count(Order.id)).scalar() or 0
+    )
+    delivered_count = (
+        q_paid.filter(Order.status == OrderStatus.delivered)
+        .with_entities(func.count(Order.id)).scalar() or 0
+    )
+
+    quote_count = q_quotes.with_entities(func.count(Order.id)).scalar() or 0
+    quote_revenue = float(q_quotes.with_entities(func.sum(_usd_total_expr())).scalar() or 0)
+
     total_users     = db.query(func.count(User.id)).filter(User.is_active == True).scalar() or 0
     verified_users  = db.query(func.count(User.id)).filter(User.email_verified == True, User.is_active == True).scalar() or 0
+
     avg_order_value = round(total_revenue / total_orders, 2) if total_orders else 0.0
 
-    by_status = {
-        s.value: db.query(func.count(Order.id)).filter(Order.status == s, Order.is_quote.isnot(True)).scalar() or 0
+    by_status_paid = {
+        s.value: (
+            q_paid.filter(Order.status == s)
+            .with_entities(func.count(Order.id)).scalar() or 0
+        )
+        for s in OrderStatus
+    }
+    by_status_quotes = {
+        s.value: (
+            q_quotes.filter(Order.status == s)
+            .with_entities(func.count(Order.id)).scalar() or 0
+        )
         for s in OrderStatus
     }
 
+    by_status_all = {
+        k: (by_status_paid.get(k, 0) + by_status_quotes.get(k, 0))
+        for k in by_status_paid.keys()
+    }
+
+    # Backlog aging / lead-time proxy (sin timestamps de transición de estado,
+    # aproximamos con (now - created_at) para órdenes en el estado actual).
+    now = datetime.now(timezone.utc)
+    aging_paid = {s.value: [] for s in OrderStatus}
+    aging_quotes = {s.value: [] for s in OrderStatus}
+
+    for o in q_paid.all():
+        if not o.created_at:
+            continue
+        created_at = o.created_at
+        if getattr(created_at, "tzinfo", None) is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        age_days = (now - created_at).total_seconds() / 86400
+        aging_paid[o.status.value].append(age_days)
+
+    for o in q_quotes.all():
+        if not o.created_at:
+            continue
+        created_at = o.created_at
+        if getattr(created_at, "tzinfo", None) is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        age_days = (now - created_at).total_seconds() / 86400
+        aging_quotes[o.status.value].append(age_days)
+
+    aging_by_status_paid = {
+        s: {
+            "count": len(ages),
+            "avg_age_days": round((sum(ages) / len(ages)), 2) if ages else 0.0,
+        }
+        for s, ages in aging_paid.items()
+    }
+    aging_by_status_quotes = {
+        s: {
+            "count": len(ages),
+            "avg_age_days": round((sum(ages) / len(ages)), 2) if ages else 0.0,
+        }
+        for s, ages in aging_quotes.items()
+    }
+
+    delivered_paid_days = aging_paid[OrderStatus.delivered.value]
+    avg_days_in_system_delivered_paid = (
+        round(sum(delivered_paid_days) / len(delivered_paid_days), 2)
+        if delivered_paid_days
+        else 0.0
+    )
+
     return {
+        # KPIs “reales”: excluyen cotizaciones.
         "total_orders":    total_orders,
         "total_revenue":   total_revenue,
         "pending_count":   pending_count,
         "delivered_count": delivered_count,
         "quote_count":     quote_count,
         "avg_order_value": avg_order_value,
+        "quote_revenue":   quote_revenue,
         "total_users":     total_users,
         "verified_users":  verified_users,
-        "by_status":       by_status,
+        # Compatibilidad: `by_status` históricamente era excluyendo cotizaciones.
+        "by_status":         by_status_paid,
+        "by_status_quotes":  by_status_quotes,
+        "by_status_all":     by_status_all,
+        # Front usa `include_quotes` para escoger cuál set dibujar.
+        "include_quotes": include_quotes,
+        "aging_by_status_paid": aging_by_status_paid,
+        "aging_by_status_quotes": aging_by_status_quotes,
+        "avg_days_in_system_delivered_paid": avg_days_in_system_delivered_paid,
     }
 
 
 @router.get("/stats/timeline")
 def get_timeline(
     days: int = Query(default=30, ge=7, le=90),
+    start_date: Optional[date] = Query(default=None),
+    end_date: Optional[date] = Query(default=None),
+    include_quotes: bool = Query(default=False),
     db: Session = Depends(get_db),
     _=Depends(require_admin),
 ):
-    since = datetime.now(timezone.utc) - timedelta(days=days)
-    rows = (
+    now = datetime.now(timezone.utc)
+    date_range = _get_date_range(start_date, end_date)
+
+    if date_range:
+        since, until = date_range
+        start_day = since.date()
+        end_day = until.date()
+        days_count = (end_day - start_day).days + 1
+    else:
+        end_day = now.date()
+        start_day = (now - timedelta(days=days - 1)).date()
+        days_count = days
+        since = datetime.combine(start_day, dt_time.min).replace(tzinfo=timezone.utc)
+        until = datetime.combine(end_day, dt_time.max).replace(tzinfo=timezone.utc)
+
+    paid_rows = (
         db.query(
             func.date(Order.created_at).label("date"),
             func.count(Order.id).label("orders"),
-            func.sum(Order.total_amount).label("revenue"),
+            func.sum(_usd_total_expr()).label("revenue"),
         )
-        .filter(Order.created_at >= since, Order.is_quote.isnot(True))
+        .filter(Order.created_at >= since, Order.created_at <= until, Order.is_quote.isnot(True))
         .group_by(func.date(Order.created_at))
         .order_by(func.date(Order.created_at))
         .all()
     )
-    result_map = {str(r.date): {"orders": r.orders, "revenue": float(r.revenue or 0)} for r in rows}
+    paid_map = {
+        str(r.date): {"orders": int(r.orders or 0), "revenue": float(r.revenue or 0)}
+        for r in paid_rows
+    }
+
+    quote_map = {}
+    if include_quotes:
+        quote_rows = (
+            db.query(
+                func.date(Order.created_at).label("date"),
+                func.count(Order.id).label("quote_orders"),
+                func.sum(_usd_total_expr()).label("quote_revenue"),
+            )
+            .filter(Order.created_at >= since, Order.created_at <= until, Order.is_quote.is_(True))
+            .group_by(func.date(Order.created_at))
+            .order_by(func.date(Order.created_at))
+            .all()
+        )
+        quote_map = {
+            str(r.date): {
+                "quote_orders": int(r.quote_orders or 0),
+                "quote_revenue": float(r.quote_revenue or 0),
+            }
+            for r in quote_rows
+        }
+
     timeline = []
-    for i in range(days):
-        day = (datetime.now(timezone.utc) - timedelta(days=days - 1 - i)).strftime("%Y-%m-%d")
-        entry = result_map.get(day, {"orders": 0, "revenue": 0.0})
-        timeline.append({"date": day, **entry})
-    return {"days": days, "timeline": timeline}
+    for i in range(days_count):
+        day = (start_day + timedelta(days=i)).strftime("%Y-%m-%d")
+        paid_entry = paid_map.get(day, {"orders": 0, "revenue": 0.0})
+        quote_entry = quote_map.get(day, {"quote_orders": 0, "quote_revenue": 0.0})
+        timeline.append({"date": day, **paid_entry, **quote_entry})
+
+    return {"days": days_count, "timeline": timeline}
 
 
 @router.get("/stats/top-products")
@@ -112,8 +315,11 @@ def get_top_products(
     limit: int = Query(default=5, ge=1, le=20),
     db: Session = Depends(get_db),
     _=Depends(require_admin),
+    start_date: Optional[date] = Query(default=None),
+    end_date: Optional[date] = Query(default=None),
 ):
     """Productos con más revenue (excluye cotizaciones — nunca se pagaron)."""
+    date_range = _get_date_range(start_date, end_date)
     rows = (
         db.query(
             Product.id,
@@ -126,6 +332,11 @@ def get_top_products(
         .join(OrderItem, OrderItem.product_id == Product.id)
         .join(Order, Order.id == OrderItem.order_id)
         .filter(Order.is_quote.isnot(True))
+        .filter(
+            *(  # date_range is optional
+                [] if not date_range else [Order.created_at >= date_range[0], Order.created_at <= date_range[1]]
+            )
+        )
         .group_by(Product.id)
         .order_by(func.sum(OrderItem.quantity * OrderItem.unit_price).desc())
         .limit(limit)
@@ -149,30 +360,43 @@ def get_top_customers(
     limit: int = Query(default=5, ge=1, le=20),
     db: Session = Depends(get_db),
     _=Depends(require_admin),
+    start_date: Optional[date] = Query(default=None),
+    end_date: Optional[date] = Query(default=None),
 ):
     """Clientes con más gasto acumulado (excluye cotizaciones — nunca se pagaron)."""
+    date_range = _get_date_range(start_date, end_date)
+    usd_expr = _usd_total_expr()
+
     rows = (
         db.query(
             User.id,
             User.email,
             User.business_name,
             func.count(Order.id).label("order_count"),
-            func.sum(Order.total_amount).label("total_spent"),
+            func.sum(usd_expr).label("total_spent_usd"),
         )
         .join(Order, Order.user_id == User.id)
         .filter(Order.is_quote.isnot(True))
+        .filter(*(  # date_range is optional
+            [] if not date_range else [Order.created_at >= date_range[0], Order.created_at <= date_range[1]]
+        ))
         .group_by(User.id)
-        .order_by(func.sum(Order.total_amount).desc())
+        .order_by(func.sum(usd_expr).desc())
         .limit(limit)
         .all()
     )
+
+    tiers = _ensure_default_customer_spend_tiers(db)
+
     return [
         {
             "id":            r.id,
             "email":         r.email,
             "business_name": r.business_name,
             "order_count":   int(r.order_count or 0),
-            "total_spent":   float(r.total_spent or 0),
+            "total_spent":   float(r.total_spent_usd or 0),
+            "tier_name":     _select_tier_for_spent_usd(tiers, float(r.total_spent_usd or 0)).name,
+            "tier_color":    _select_tier_for_spent_usd(tiers, float(r.total_spent_usd or 0)).color_hex,
         }
         for r in rows
     ]
@@ -186,6 +410,61 @@ def list_all_orders(
     _=Depends(require_admin),
 ):
     return db.query(Order).order_by(Order.created_at.desc()).all()
+
+
+@router.get("/orders/search", response_model=OrdersSearchOut)
+def search_orders(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=30, ge=1, le=100),
+    search: str = Query(default="", max_length=100),
+    status: str = Query(default="all", max_length=40),
+    is_quote: Optional[bool] = Query(default=None),
+    start_date: Optional[date] = Query(default=None),
+    end_date: Optional[date] = Query(default=None),
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    date_range = _get_date_range(start_date, end_date)
+
+    q = (
+        db.query(Order)
+        .options(joinedload(Order.user), selectinload(Order.items))
+        .join(User, Order.user_id == User.id)
+    )
+
+    if status != "all" and status:
+        try:
+            status_enum = OrderStatus(status)
+        except Exception:
+            raise HTTPException(status_code=422, detail="status inválido")
+        q = q.filter(Order.status == status_enum)
+
+    if is_quote is True:
+        q = q.filter(Order.is_quote.is_(True))
+    elif is_quote is False:
+        q = q.filter(Order.is_quote.isnot(True))
+
+    if date_range:
+        since, until = date_range
+        q = q.filter(Order.created_at >= since, Order.created_at <= until)
+
+    s = search.strip()
+    if s:
+        like = f"%{s}%"
+        filters = [User.email.ilike(like), User.business_name.ilike(like)]
+        if s.isdigit():
+            filters.append(Order.id == int(s))
+        q = q.filter(or_(*filters))
+
+    total = q.count()
+    items = (
+        q.order_by(Order.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    return OrdersSearchOut(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.patch("/orders/{order_id}/status", response_model=OrderOut)
@@ -223,7 +502,7 @@ def list_users(
     result = []
     for u in users:
         total_orders = db.query(func.count(Order.id)).filter(Order.user_id == u.id).scalar() or 0
-        total_spent  = float(db.query(func.sum(Order.total_amount)).filter(Order.user_id == u.id).scalar() or 0)
+        total_spent  = float(db.query(func.sum(_usd_total_expr())).filter(Order.user_id == u.id).scalar() or 0)
         result.append({
             "id":             u.id,
             "email":          u.email,

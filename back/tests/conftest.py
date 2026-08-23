@@ -171,7 +171,10 @@ def oos_product(db):
 def pending_order(db, regular_user, server_product):
     order = Order(
         user_id=regular_user.id,
-        total_amount=5900.00,
+        # total_amount se guarda en CLP; en fixtures se emula el flujo real.
+        # unit_price (OrderItem) está en USD, por eso total_amount = unit_price * exchange_rate_used.
+        exchange_rate_used=1000.00,
+        total_amount=5_900_000.00,
         status=OrderStatus.pending,
         document_type=DocumentType.boleta,
     )
@@ -193,7 +196,9 @@ def quote_order(db, regular_user, storage_product):
     """Cotización (RFQ): nunca se paga, no debe contar como revenue."""
     order = Order(
         user_id=regular_user.id,
-        total_amount=12200.00,
+        # RFQ también guarda total estimado en CLP.
+        exchange_rate_used=1000.00,
+        total_amount=12_200_000.00,
         status=OrderStatus.pending,
         document_type=DocumentType.boleta,
         is_quote=True,

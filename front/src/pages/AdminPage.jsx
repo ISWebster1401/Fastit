@@ -5,11 +5,12 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import {
-  adminGetOrders, adminGetStats, adminUpdateStatus, adminGetTimeline,
+  adminGetStats, adminUpdateStatus, adminGetTimelineDetailed,
   adminGetUsers, adminDeleteUser, adminToggleActive,
   adminGetProducts, adminDeleteProduct, adminImportPreview, adminImportConfirm,
   adminSupplierList, adminSupplierImportPreview,
   adminGetTopProducts, adminGetTopCustomers,
+  adminSearchOrders,
 } from '../api/client'
 import { formatUSD } from '../store/currencyStore'
 
@@ -39,6 +40,9 @@ const NEXT = {
 
 export default function AdminPage() {
   const [orders,       setOrders]       = useState([])
+  const [ordersTotal,  setOrdersTotal]  = useState(0)
+  const [ordersPage,   setOrdersPage]   = useState(1)
+  const [ordersLoading,setOrdersLoading]= useState(false)
   const [stats,        setStats]        = useState(null)
   const [timeline,     setTimeline]     = useState(null)
   const [topProducts,  setTopProducts]  = useState(null)
@@ -50,6 +54,10 @@ export default function AdminPage() {
   const [expandedId,   setExpandedId]   = useState(null)
   const [updating,     setUpdating]     = useState(null)
   const [timelineDays, setTimelineDays] = useState(30)
+  const [rangeMode,    setRangeMode]    = useState('quick') // quick | custom
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate,   setCustomEndDate]   = useState('')
+  const [includeQuotes,   setIncludeQuotes]   = useState(false)
   const [tab,            setTab]            = useState('dashboard')
   const [users,          setUsers]          = useState([])
   const [usersLoading,   setUsersLoading]   = useState(false)
@@ -58,25 +66,88 @@ export default function AdminPage() {
   const [showImport,     setShowImport]     = useState(false)
   const [showSupplier,   setShowSupplier]   = useState(false)
 
-  const load = () => {
+  const pageSize = 20
+
+  const formatDate = (d) => {
+    const yyyy = d.getFullYear()
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+  }
+
+  const quickRange = (() => {
+    const end = new Date()
+    const start = new Date()
+    start.setDate(start.getDate() - (timelineDays - 1))
+    return { startDate: formatDate(start), endDate: formatDate(end) }
+  })()
+
+  const effectiveRange = (
+    rangeMode === 'custom' && customStartDate && customEndDate
+      ? { startDate: customStartDate, endDate: customEndDate }
+      : quickRange
+  )
+
+  const loadDashboard = () => {
     setLoading(true)
     Promise.all([
-      adminGetOrders(), adminGetStats(), adminGetTimeline(timelineDays),
-      adminGetTopProducts(), adminGetTopCustomers(),
+      adminGetStats({ startDate: effectiveRange.startDate, endDate: effectiveRange.endDate, includeQuotes }),
+      adminGetTimelineDetailed({ startDate: effectiveRange.startDate, endDate: effectiveRange.endDate, includeQuotes }),
+      adminGetTopProducts(5, { startDate: effectiveRange.startDate, endDate: effectiveRange.endDate }),
+      adminGetTopCustomers(5, { startDate: effectiveRange.startDate, endDate: effectiveRange.endDate }),
     ])
-      .then(([o, s, t, tp, tc]) => {
-        setOrders(o); setStats(s); setTimeline(t)
-        setTopProducts(tp); setTopCustomers(tc)
+      .then(([s, t, tp, tc]) => {
+        setStats(s)
+        setTimeline(t)
+        setTopProducts(tp)
+        setTopCustomers(tc)
       })
       .catch(() => setError('No se pudieron cargar los datos.'))
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, []) // eslint-disable-line
+  const loadOrders = async (page = 1) => {
+    setOrdersLoading(true)
+    try {
+      const normalizedSearch = search.replace(/^#/, '').trim()
+      const res = await adminSearchOrders({
+        page,
+        pageSize,
+        search: normalizedSearch,
+        status: statusFilter,
+        isQuote: includeQuotes ? null : false,
+        startDate: effectiveRange.startDate,
+        endDate: effectiveRange.endDate,
+      })
+      setOrders(res.items || [])
+      setOrdersTotal(res.total || 0)
+      setOrdersPage(res.page || page)
+      setExpandedId(null)
+    } catch {
+      setError('No se pudieron cargar las órdenes.')
+    } finally {
+      setOrdersLoading(false)
+    }
+  }
 
   useEffect(() => {
-    if (!loading) adminGetTimeline(timelineDays).then(setTimeline).catch(() => {})
-  }, [timelineDays]) // eslint-disable-line
+    loadDashboard()
+    loadOrders(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    loadDashboard()
+    if (tab === 'orders') loadOrders(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timelineDays, rangeMode, customStartDate, customEndDate, includeQuotes, tab, statusFilter])
+
+  useEffect(() => {
+    if (tab !== 'orders') return
+    const t = setTimeout(() => loadOrders(1), 250)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search])
 
   useEffect(() => {
     if (tab === 'users' && users.length === 0) {
@@ -118,9 +189,12 @@ export default function AdminPage() {
   const handleStatusChange = async (orderId, newStatus) => {
     setUpdating(orderId)
     try {
-      const updated = await adminUpdateStatus(orderId, newStatus)
-      setOrders(prev => prev.map(o => o.id === orderId ? updated : o))
-      adminGetStats().then(setStats).catch(() => {})
+      await adminUpdateStatus(orderId, newStatus)
+      // Recargar para reflejar cambios en filtros/paginación.
+      await Promise.all([
+        tab === 'orders' ? loadOrders(ordersPage) : Promise.resolve(),
+        loadDashboard(),
+      ])
     } catch {
       alert('Error al actualizar el estado.')
     } finally {
@@ -128,23 +202,23 @@ export default function AdminPage() {
     }
   }
 
-  const filtered = orders.filter(o => {
-    const matchStatus = statusFilter === 'all' || o.status === statusFilter
-    const q = search.toLowerCase().trim()
-    const matchSearch = !q || String(o.id).includes(q)
-      || o.client_name?.toLowerCase().includes(q)
-      || o.client_email?.toLowerCase().includes(q)
-    return matchStatus && matchSearch
-  })
+  // La búsqueda/filtros principales para Órdenes viven en el backend.
+  const filtered = orders
 
   // Datos para el pie chart
+  const byStatusForCharts = includeQuotes
+    ? (stats?.by_status_all || {})
+    : (stats?.by_status || {})
+
   const pieData = stats
-    ? STATUS_FLOW.filter(s => (stats.by_status[s] || 0) > 0).map(s => ({
+    ? STATUS_FLOW.filter(s => (byStatusForCharts[s] || 0) > 0).map(s => ({
         name:  STATUS_META[s]?.label,
-        value: stats.by_status[s] || 0,
+        value: byStatusForCharts[s] || 0,
         color: STATUS_META[s]?.chart,
       }))
     : []
+
+  const ordersTotalPages = Math.max(1, Math.ceil((ordersTotal || 0) / pageSize))
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -175,7 +249,7 @@ export default function AdminPage() {
             Panel de Administración
           </h1>
         </div>
-        <button onClick={load}
+        <button onClick={() => { loadDashboard(); loadOrders(ordersPage) }}
           className="flex items-center gap-1.5 text-xs text-[#64748b] dark:text-white/40
                      hover:text-[#1e40af] dark:hover:text-blue-400
                      border border-[#e2e8f0] dark:border-white/[0.08] rounded-full px-3 py-1.5
@@ -197,6 +271,13 @@ export default function AdminPage() {
           <StatCard label="Valor promedio" value={`$${Math.round(stats.avg_order_value).toLocaleString('en-US')}`} icon={<ScaleIcon/>} color="text-[#1e40af] dark:text-blue-300" bg="bg-[#e8f2ff] dark:bg-blue-500/20" />
           <StatCard label="Entregadas"     value={stats.delivered_count}  icon={<CheckCircleIcon/>} color="text-violet-600 dark:text-violet-300"   bg="bg-violet-50 dark:bg-violet-500/20"   />
           <StatCard label="Cotizaciones"   value={stats.quote_count}      icon={<QuoteIcon/>}       color="text-cyan-700 dark:text-cyan-300"       bg="bg-cyan-50 dark:bg-cyan-500/20"       />
+          <StatCard
+            label="Días (Delivered)"
+            value={`${Math.round(stats.avg_days_in_system_delivered_paid || 0)}d`}
+            icon={<ClockIcon/>}
+            color="text-emerald-700 dark:text-emerald-300"
+            bg="bg-emerald-50 dark:bg-emerald-500/20"
+          />
         </div>
       )}
 
@@ -204,7 +285,7 @@ export default function AdminPage() {
       <div className="flex border-b border-[#e2e8f0] dark:border-white/[0.07]">
         {[
           { id: 'dashboard', label: 'Dashboard' },
-          { id: 'orders',    label: `Órdenes (${orders.length})` },
+          { id: 'orders',    label: `Órdenes (${ordersTotal || 0})` },
           { id: 'users',     label: `Usuarios (${stats?.total_users ?? '…'})` },
           { id: 'products',  label: `Productos (${products.length || '…'})` },
         ].map(t => (
@@ -226,21 +307,80 @@ export default function AdminPage() {
           <div className="card p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-[#1d1d1f] dark:text-white text-sm">
-                Revenue y órdenes — últimos {timelineDays} días
+                Revenue y órdenes — rango {rangeMode === 'custom' ? 'custom' : `últimos ${timelineDays} días`}
               </h2>
-              <div className="flex gap-1">
-                {[7, 14, 30].map(d => (
-                  <button key={d} onClick={() => setTimelineDays(d)}
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <div className="flex gap-1">
+                  {[7, 14, 30].map(d => (
+                    <button
+                      key={d}
+                      onClick={() => {
+                        setRangeMode('quick')
+                        setTimelineDays(d)
+                      }}
+                      className={`text-xs px-2.5 py-1 rounded-full transition-all ${
+                        rangeMode === 'quick' && timelineDays === d
+                          ? 'bg-[#1e40af] dark:bg-blue-500 text-white'
+                          : 'text-[#6e6e73] dark:text-white/40 hover:bg-[#f1f5f9] dark:hover:bg-white/[0.06]'
+                      }`}
+                    >
+                      {d}d
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => {
+                      setRangeMode('custom')
+                      setCustomStartDate(quickRange.startDate)
+                      setCustomEndDate(quickRange.endDate)
+                    }}
                     className={`text-xs px-2.5 py-1 rounded-full transition-all ${
-                      timelineDays === d
+                      rangeMode === 'custom'
                         ? 'bg-[#1e40af] dark:bg-blue-500 text-white'
                         : 'text-[#6e6e73] dark:text-white/40 hover:bg-[#f1f5f9] dark:hover:bg-white/[0.06]'
-                    }`}>
-                    {d}d
+                    }`}
+                  >
+                    Custom
                   </button>
-                ))}
+                </div>
+
+                <label className="flex items-center gap-2 text-xs text-[#64748b] dark:text-white/40 select-none">
+                  <input
+                    type="checkbox"
+                    checked={includeQuotes}
+                    onChange={e => setIncludeQuotes(e.target.checked)}
+                    className="accent-[#1e40af]"
+                  />
+                  Mostrar cotizaciones
+                </label>
               </div>
             </div>
+
+              {rangeMode === 'custom' && (
+                <div className="flex gap-3 mb-4">
+                  <div className="flex-1">
+                    <label className="block text-[11px] text-[#86868b] dark:text-white/35 mb-1">
+                      Start date
+                    </label>
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={e => setCustomStartDate(e.target.value)}
+                      className="input-field text-sm w-full"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-[11px] text-[#86868b] dark:text-white/35 mb-1">
+                      End date
+                    </label>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={e => setCustomEndDate(e.target.value)}
+                      className="input-field text-sm w-full"
+                    />
+                  </div>
+                </div>
+              )}
             {timeline ? (
               <ResponsiveContainer width="100%" height={240}>
                 <AreaChart data={timeline.timeline} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
@@ -340,6 +480,76 @@ export default function AdminPage() {
             </div>
           </div>
 
+          {/* Cotizaciones vs ventas + Aging */}
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="card p-5">
+              <h2 className="font-semibold text-[#1d1d1f] dark:text-white text-sm mb-4">
+                Cotizaciones vs ventas — por día
+              </h2>
+              {timeline ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={timeline.timeline} margin={{ top: 5, right: 5, left: 0, bottom: 40 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 9, fill: '#94a3b8' }}
+                      interval="preserveStartEnd"
+                      tickFormatter={v => v.slice(5)}
+                    />
+                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                    <Tooltip
+                      contentStyle={{ background: '#0d1525', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 12 }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="orders" name="Ventas" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="quote_orders" name="Cotizaciones" fill="#22d3ee" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-40 flex items-center justify-center text-[#94a3b8] text-sm">
+                  Sin datos aún
+                </div>
+              )}
+            </div>
+
+            <div className="card p-5">
+              <h2 className="font-semibold text-[#1d1d1f] dark:text-white text-sm mb-4">
+                Backlog aging (promedio)
+              </h2>
+              {stats ? (
+                <ul className="space-y-3">
+                  {STATUS_FLOW.map(s => {
+                    const paid = stats.aging_by_status_paid?.[s] || { count: 0, avg_age_days: 0 }
+                    const quotes = stats.aging_by_status_quotes?.[s] || { count: 0, avg_age_days: 0 }
+                    return (
+                      <li key={s} className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-[#1d1d1f] dark:text-white truncate">
+                            {STATUS_META[s]?.label || s}
+                          </p>
+                          <p className="text-[12px] text-[#86868b] dark:text-white/35">
+                            Pagadas: {paid.count} · {paid.avg_age_days}d
+                            {includeQuotes && (
+                              <>
+                                <br />
+                                Cotizaciones: {quotes.count} · {quotes.avg_age_days}d
+                              </>
+                            )}
+                          </p>
+                        </div>
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: STATUS_META[s]?.chart }} />
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <div className="h-40 flex items-center justify-center text-[#94a3b8] text-sm">
+                  Sin datos aún
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="grid md:grid-cols-2 gap-6">
             {/* Productos más vendidos */}
             <div className="card p-5">
@@ -391,12 +601,20 @@ export default function AdminPage() {
                         <p className="text-sm font-medium text-[#1d1d1f] dark:text-white truncate">
                           {i + 1}. {c.business_name || c.email}
                         </p>
+                        {c.tier_name && (
+                          <div
+                            className="mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium"
+                            style={{ backgroundColor: c.tier_color, color: '#ffffff' }}
+                          >
+                            {c.tier_name}
+                          </div>
+                        )}
                         <p className="text-xs text-[#86868b] dark:text-white/35">
                           {c.order_count} orden{c.order_count !== 1 ? 'es' : ''}
                         </p>
                       </div>
                       <span className="text-sm font-semibold text-[#1d1d1f] dark:text-white shrink-0">
-                        ${Math.round(c.total_spent).toLocaleString('es-CL')} CLP
+                        {formatUSD(c.total_spent)}
                       </span>
                     </li>
                   ))}
@@ -427,11 +645,14 @@ export default function AdminPage() {
                 placeholder="Buscar por #orden o cliente…" className="input-field pl-9 text-sm"/>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              <FilterChip active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>
-                Todas ({orders.length})
+              <FilterChip
+                active={statusFilter === 'all'}
+                onClick={() => setStatusFilter('all')}
+              >
+                Todas ({includeQuotes ? (stats?.total_orders ?? 0) + (stats?.quote_count ?? 0) : (stats?.total_orders ?? 0)})
               </FilterChip>
               {STATUS_FLOW.map(s => {
-                const count = orders.filter(o => o.status === s).length
+                const count = byStatusForCharts[s] || 0
                 if (count === 0) return null
                 return (
                   <FilterChip key={s} active={statusFilter === s}
@@ -444,7 +665,11 @@ export default function AdminPage() {
           </div>
 
           {/* Tabla */}
-          {filtered.length === 0 ? (
+          {ordersLoading ? (
+            <div className="text-center py-10 text-[#6e6e73] dark:text-white/40 text-sm">
+              Cargando órdenes…
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="text-center py-16 text-[#6e6e73] dark:text-white/40 text-sm">
               No se encontraron órdenes.
             </div>
@@ -506,7 +731,9 @@ export default function AdminPage() {
                             {order.items.length}
                           </td>
                           <td className="px-4 py-3 text-right font-semibold text-[#1d1d1f] dark:text-white">
-                            ${Number(order.total_amount).toLocaleString('en-US')}
+                            {formatUSD(
+                              Number(order.total_amount) / (Number(order.exchange_rate_used || 1))
+                            )}
                           </td>
                           <td className="px-4 py-3 text-right hidden lg:table-cell text-xs text-[#86868b] dark:text-white/35">
                             {order.created_at
@@ -533,6 +760,40 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {ordersTotalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <button
+                onClick={() => {
+                  const prev = Math.max(1, ordersPage - 1)
+                  setOrdersPage(prev)
+                  loadOrders(prev)
+                }}
+                disabled={ordersPage <= 1 || ordersLoading}
+                className="text-xs px-3 py-1.5 rounded-full border border-[#e2e8f0] dark:border-white/[0.08]
+                           text-[#64748b] dark:text-white/40 hover:border-[#94a3b8] dark:hover:border-white/[0.25]
+                           transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Anterior
+              </button>
+              <div className="text-xs text-[#86868b] dark:text-white/35">
+                Página {ordersPage} de {ordersTotalPages} · Total {ordersTotal}
+              </div>
+              <button
+                onClick={() => {
+                  const next = Math.min(ordersTotalPages, ordersPage + 1)
+                  setOrdersPage(next)
+                  loadOrders(next)
+                }}
+                disabled={ordersPage >= ordersTotalPages || ordersLoading}
+                className="text-xs px-3 py-1.5 rounded-full border border-[#e2e8f0] dark:border-white/[0.08]
+                           text-[#64748b] dark:text-white/40 hover:border-[#94a3b8] dark:hover:border-white/[0.25]
+                           transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Siguiente
+              </button>
             </div>
           )}
         </div>
@@ -721,7 +982,7 @@ export default function AdminPage() {
                           {u.total_orders}
                         </td>
                         <td className="px-4 py-3 text-right font-semibold text-[#1d1d1f] dark:text-white text-xs hidden lg:table-cell">
-                          ${u.total_spent.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                          {formatUSD(u.total_spent)}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${

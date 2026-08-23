@@ -72,7 +72,8 @@ class TestAdminStats:
         data = res.json()
         assert data["total_orders"] == 1
         assert data["pending_count"] == 1
-        assert data["total_revenue"] == float(pending_order.total_amount)
+        expected_usd = float(pending_order.total_amount) / float(pending_order.exchange_rate_used or 1)
+        assert data["total_revenue"] == expected_usd
 
     def test_stats_avg_order_value(self, client, admin_token, pending_order):
         res = client.get(
@@ -80,7 +81,8 @@ class TestAdminStats:
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         data = res.json()
-        assert data["avg_order_value"] == float(pending_order.total_amount)
+        expected_usd = float(pending_order.total_amount) / float(pending_order.exchange_rate_used or 1)
+        assert data["avg_order_value"] == expected_usd
 
     def test_quotes_excluded_from_revenue(self, client, admin_token, pending_order, quote_order):
         res = client.get(
@@ -90,7 +92,8 @@ class TestAdminStats:
         data = res.json()
         # Solo pending_order cuenta como revenue real; quote_order queda aparte.
         assert data["total_orders"] == 1
-        assert data["total_revenue"] == float(pending_order.total_amount)
+        expected_usd = float(pending_order.total_amount) / float(pending_order.exchange_rate_used or 1)
+        assert data["total_revenue"] == expected_usd
         assert data["quote_count"] == 1
 
     def test_quotes_dont_affect_by_status_counts(self, client, admin_token, quote_order):
@@ -112,7 +115,8 @@ class TestAdminTopProducts:
         products = res.json()
         assert len(products) == 1
         assert products[0]["units_sold"] == 1
-        assert products[0]["revenue"] == float(pending_order.total_amount)
+        expected_usd = float(pending_order.total_amount) / float(pending_order.exchange_rate_used or 1)
+        assert products[0]["revenue"] == expected_usd
 
     def test_top_products_empty_without_orders(self, client, admin_token):
         res = client.get(
@@ -140,7 +144,8 @@ class TestAdminTopCustomers:
         assert len(customers) == 1
         assert customers[0]["id"] == regular_user.id
         assert customers[0]["order_count"] == 1
-        assert customers[0]["total_spent"] == float(pending_order.total_amount)
+        expected_usd = float(pending_order.total_amount) / float(pending_order.exchange_rate_used or 1)
+        assert customers[0]["total_spent"] == expected_usd
 
     def test_top_customers_empty_without_orders(self, client, admin_token):
         res = client.get(
